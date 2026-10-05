@@ -12,7 +12,8 @@ ad-miner/                 raiz do repositório
   icon-*.png, logo-*.png  artes originais (branco/preto), fora da extensão
   ad-miner/               pasta da extensão (é esta que se carrega no Chrome)
     manifest.json
-    content.js            todo o código (IIFE única, ~750 linhas)
+    content.js            todo o código da página (IIFE única, ~780 linhas)
+    background.js         service worker: busca a versão publicada no GitHub (raw) para o aviso de atualização
     assets/               logo-white.png (560x159) e icon-16/48/128.png, gerados do icon-white original
 ```
 
@@ -30,15 +31,17 @@ Carregar: `chrome://extensions` > Modo do desenvolvedor > Carregar sem compacta�
 - **Painel:** Shadow DOM (`#ad-miner-host`) com topo (logo, origem, selo Dev, versão), estatísticas, abas Anúncios / Anunciantes / Palavras / Salvos, filtros, lightbox de mídia e rodapé (carregar tudo, CSV, JSON, copiar IDs, limpar lista).
 - **Estado:** `state.ads` (página atual, zera ao mudar a busca ou recarregar) e `state.saved` (persistido em `chrome.storage.local`, chave `amSaved`, com thumbnail em data URL quando cabe em 600 KB).
 - **SPA:** `MutationObserver` com debounce dispara `scan`; um `setInterval` de 1 s detecta mudança de `location.href` e reinicia a lista.
-- **Topo do painel:** versão vem de `chrome.runtime.getManifest()`; o selo "Dev" aparece quando o manifest não tem `update_url` (instalação sem loja). A linha "Você está na versão mais recente" é fixa: ainda não há checagem de atualização.
+- **Topo do painel:** logo branca, origem e selo laranja "Dev" (ou `vX.Y.Z` se instalada pela loja). Clicar no selo abre o box com versão instalada, status de atualização e link do repositório. O status vem do `background.js`, que lê `ad-miner/manifest.json` da branch `main` em `raw.githubusercontent.com` e compara a versão. Para o aviso funcionar, o repositório precisa ser público e a versão do manifest em `main` deve ser incrementada a cada release.
+- **Botão flutuante:** pílula escura com borda laranja, logo branca e contador de anúncios capturados.
 
 ## Convenções
 
 - Código em JavaScript puro, sem dependências. Comentários curtos em português, sem acentos nos comentários do código.
 - Textos de interface em pt-BR.
 - Qualquer texto vindo da página entra no painel via `esc()`; não usar `innerHTML` com dado do anúncio sem escapar.
-- Identidade visual: fundo `#1A1A2E`, roxo `#7B2FBE` (destaque forte), amarelo `#E0A800` (médio). Logo e ícone brancos no painel escuro; logo laranja `#F5A31A` em gradiente.
+- Identidade visual: fundo `#1A1A2E`, laranja `#F5A31A` como cor de destaque (abas ativas, botões, anúncios fortes, selo Dev), azul acinzentado `#7f93c9` para nível médio. Texto sobre laranja usa `#1A1A2E`. Logo e ícone brancos no painel escuro.
 - Recursos usados pelo content script precisam estar em `web_accessible_resources` no manifest.
+- Release: incrementar `version` no `manifest.json` e dar push na `main`; instalações existentes passam a mostrar "Nova versão disponível".
 
 ## Problemas conhecidos (da análise)
 
