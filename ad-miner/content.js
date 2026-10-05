@@ -10,8 +10,9 @@
   const ID_RE = /(?:Identificação da biblioteca|Library ID)\s*:?\s*(\d{6,})/i;
   const META_LINE = /^(Ativo|Inativo|Active|Inactive|Patrocinado|Sponsored|Ver resumo|Ver detalhes do anúncio|See ad details|See summary details|Plataformas|Platforms|\.\.\.|…)$/i;
   const META_CONTAINS = /Identificação da biblioteca|Library ID|Veiculação|Started running|Ran from|usam esse criativo|use this creative|^Plataformas|^Platforms/i;
-  const CTA_RE = /^(Saiba mais|Learn more|Comprar agora|Shop now|Cadastre-se|Sign up|Enviar mensagem|Send message|Fale conosco|Contact us|Baixar|Download|Reservar|Book now|Ver mais|See more|Obter oferta|Get offer|Solicitar|Ligar agora|Call now|Assistir mais|Watch more|Inscreva-se|Subscribe|Obter cotação|Get quote|Experimente|Enviar mensagem no WhatsApp|WhatsApp)$/i;
-  const STOP = new Set('para como mais você voce uma uns umas com sem por que não nao dos das nos nas seu sua seus suas pelo pela isso essa esse esta este mesmo muito muita ainda também tambem são sao foi ser ter tem uma tudo todo toda todos todas aqui onde quando sobre entre até ate fazer faça faca sua seu nosso nossa pode podem the and for you your with that this from have are our not but was can will get its out all more'.split(' '));
+  const CTA_RE = /^(Saiba mais|Learn more|Comprar agora|Shop now|Cadastre-se|Sign up|Enviar mensagem|Send message|Fale conosco|Contact us|Baixar|Download|Reservar|Book now|Ver mais|See more|Obter oferta|Get offer|Solicitar|Ligar agora|Call now|Assistir mais|Watch more|Inscreva-se|Subscribe|Obter cotação|Get quote|Experimente|Enviar mensagem no WhatsApp|Enviar mensagem do WhatsApp|Send WhatsApp Message|WhatsApp)$/i;
+  const PLAYER_RE = /^(\d+:\d{2}(\s*\/\s*\d+:\d{2})?|Send WhatsApp Message|Enviar mensagem (do|no) WhatsApp|Send Message|Enviar mensagem)$/i; // controles do player e botoes de CTA
+  const STOP =new Set('para como mais você voce uma uns umas com sem por que não nao dos das nos nas seu sua seus suas pelo pela isso essa esse esta este mesmo muito muita ainda também tambem são sao foi ser ter tem uma tudo todo toda todos todas aqui onde quando sobre entre até ate fazer faça faca sua seu nosso nossa pode podem the and for you your with that this from have are our not but was can will get its out all more'.split(' '));
 
   const state = {
     ads: new Map(),      // anuncios da pagina atual (resetam ao recarregar ou mudar a busca)
@@ -123,11 +124,7 @@
   }
 
   function extract(el, id) {
-    // esconde o que a extensao injetou no card para nao entrar na copy
-    const own = [...el.querySelectorAll('.am-badge, .am-zoom')];
-    own.forEach(n => { n.style.display = 'none'; });
-    const text = el.innerText || '';
-    own.forEach(n => { n.style.display = ''; });
+    const text = el.innerText || ''; // o overlay da extensao fica em Shadow DOM, fora do innerText
     const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
 
     const status = (lines.find(l => /^(Ativo|Inativo|Active|Inactive)$/i.test(l)) || '').toLowerCase();
@@ -152,8 +149,10 @@
     }
 
     const base = spIdx >= 0 ? lines.slice(spIdx + 1) : lines;
-    const copyLines = base.filter(l => !META_LINE.test(l) && !META_CONTAINS.test(l) && !CTA_RE.test(l) && !/^[A-Z0-9\-]+(\.[A-Z0-9\-]+)+(\/.*)?$/.test(l) && l !== advertiser);
-    const copy = copyLines.join('\n').slice(0, 2000);
+    const copyLines = base
+      .filter(l => !META_LINE.test(l) && !META_CONTAINS.test(l) && !CTA_RE.test(l) && !PLAYER_RE.test(l) && !/^[A-Z0-9\-]+(\.[A-Z0-9\-]+)+(\/.*)?$/.test(l) && l !== advertiser)
+      .map(l => (/^[.·•]+$/.test(l) ? '' : l)); // linha so com ponto vira espaco entre paragrafos
+    const copy = copyLines.join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 2000);
     const cta = lines.find(l => CTA_RE.test(l)) || '';
 
     let domain = '', link = '';
@@ -274,41 +273,38 @@
       el.style.borderRadius = '12px';
       el.dataset.amid = a.id;
 
-      let b = el.querySelector(':scope > .am-badge');
-      if (!b) {
-        b = document.createElement('div');
-        b.className = 'am-badge';
-        b.style.cssText = 'position:absolute;top:8px;right:8px;z-index:9;display:flex;border-radius:10px;overflow:hidden;color:#fff;pointer-events:none;box-shadow:0 3px 12px rgba(0,0,0,.4);font-family:system-ui,sans-serif';
-        for (let i = 0; i < 3; i++) {
-          const c = document.createElement('div');
-          c.style.cssText = 'padding:5px 11px;text-align:center;min-width:62px;' + (i ? 'border-left:1px solid rgba(255,255,255,.28);' : '');
-          const n = document.createElement('div');
-          n.style.cssText = 'font-weight:800;font-size:19px;line-height:1.1';
-          const l = document.createElement('div');
-          l.style.cssText = 'font-weight:600;font-size:9px;letter-spacing:.5px;opacity:.92;margin-top:1px';
-          c.appendChild(n); c.appendChild(l);
-          b.appendChild(c);
-        }
-        el.appendChild(b);
+      // overlay em Shadow DOM: o CSS do Facebook nao consegue desmontar o layout
+      let h = el.querySelector(':scope > .am-badge');
+      if (!h) {
+        h = document.createElement('div');
+        h.className = 'am-badge';
+        h.style.cssText = 'all:initial;position:absolute;top:8px;right:8px;z-index:9;pointer-events:none';
+        const sr = h.attachShadow({ mode: 'open' });
+        sr.innerHTML = `<style>
+          *{box-sizing:border-box;font-family:system-ui,sans-serif}
+          .stack{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+          .bar{display:flex;flex-direction:row;flex-wrap:nowrap;border-radius:10px;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.4)}
+          .c{padding:4px 9px;text-align:center;min-width:58px}
+          .c+.c{border-left:1px solid rgba(255,255,255,.28)}
+          .n{font-weight:800;font-size:17px;line-height:1.1}
+          .l{font-weight:600;font-size:8.5px;letter-spacing:.5px;opacity:.92;margin-top:1px;white-space:nowrap}
+          button{pointer-events:auto;border:0;border-radius:8px;padding:5px 11px;font:600 11px/1.3 system-ui,sans-serif;color:#fff;background:#1A1A2E;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+          button:hover{background:#F5A31A;color:#1A1A2E}
+        </style>
+        <div class="stack"><div class="bar">${'<div class="c"><div class="n"></div><div class="l"></div></div>'.repeat(3)}</div><button>Ampliar mídia</button></div>`;
+        sr.querySelector('button').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openLightbox(el.dataset.amid, 0); });
+        el.appendChild(h);
       }
-      b.style.background = a.tier === 'forte' ? '#F5A31A' : a.tier === 'medio' ? '#4a5a8a' : '#3a3a4a';
-      b.style.color = a.tier === 'forte' ? '#1A1A2E' : '#fff';
+      const sr = h.shadowRoot;
+      const bar = sr.querySelector('.bar');
+      bar.style.background = a.tier === 'forte' ? '#F5A31A' : a.tier === 'medio' ? '#4a5a8a' : '#3a3a4a';
+      bar.style.color = a.tier === 'forte' ? '#1A1A2E' : '#fff';
       const vals = [[a.days, 'DIAS NO AR'], [a.vars + 'x', 'VARIAÇÕES'], [a.score, isSaved(a.id) ? 'SCORE ★' : 'SCORE']];
-      vals.forEach(([v, lab], i) => {
-        b.children[i].children[0].textContent = v;
-        b.children[i].children[1].textContent = lab;
+      sr.querySelectorAll('.c').forEach((c, i) => {
+        c.children[0].textContent = vals[i][0];
+        c.children[1].textContent = vals[i][1];
       });
-
-      let z = el.querySelector(':scope > .am-zoom');
-      const hasMedia = (a.media && a.media.length) || a.thumb;
-      if (!z && hasMedia) {
-        z = document.createElement('button');
-        z.className = 'am-zoom';
-        z.textContent = 'Ampliar mídia';
-        z.style.cssText = 'position:absolute;top:68px;right:8px;z-index:9;padding:5px 11px;border:0;border-radius:8px;font:600 11px/1.3 system-ui,sans-serif;color:#fff;background:#1A1A2E;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.35)';
-        z.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); openLightbox(el.dataset.amid, 0); });
-        el.appendChild(z);
-      }
+      sr.querySelector('button').style.display = (a.media && a.media.length) || a.thumb ? '' : 'none';
 
       const ok = passes(a);
       el.style.display = !ok && f.hide ? 'none' : '';
@@ -394,8 +390,14 @@
     .lbbox{width:min(96vw,1180px);height:min(92vh,820px);display:flex;flex-direction:column;background:#12121f;border-radius:14px;overflow:hidden;color:#fff;border:1px solid #34345a}
     .lbbody{flex:1;display:flex;min-height:0}
     .lbleft{flex:1;display:flex;flex-direction:column;min-width:0}
-    .lbside{flex:none;width:340px;overflow:auto;padding:14px;background:var(--bg);border-left:1px solid #2c2c4a}
-    .lbside .adv{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:4px}
+    .lbside{flex:none;width:360px;overflow:auto;padding:16px;background:var(--bg);border-left:1px solid #2c2c4a}
+    .lbside .adv{font-size:16px;font-weight:700;color:var(--accent);margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .tier{font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;border-radius:999px;padding:2px 9px;background:#3a3a4a;color:#fff}
+    .tier.forte{background:var(--accent);color:var(--dark)}.tier.medio{background:#4a5a8a}
+    .lbside .acts{margin:10px 0 0}
+    .lbside .acts button{padding:6px 10px;font-size:12px}
+    .lbside .meta{line-height:1.6}
+    .lbtext{background:var(--card);border-radius:10px;padding:12px}
     .lbside .mets{grid-template-columns:repeat(2,1fr)}
     .lbside h4{margin:14px 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--mut)}
     .lbtext{font-size:13px;line-height:1.5;color:#e4e4f2;white-space:pre-wrap;word-break:break-word}
@@ -404,9 +406,9 @@
     .lbbar b{font-size:13px}
     .lbbar button{background:#2c2c4a;color:#fff;border:0;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;margin-left:4px}
     .lbbar button:hover{background:#F5A31A;color:#1A1A2E}
-    .lbmedia{flex:1;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;overflow:hidden}
-    .lbmedia video,.lbmedia img{max-width:100%;max-height:100%;object-fit:contain}
-    .lbmsg{color:#F5A31A;font-size:12px;padding:6px 14px}
+    .lbmedia{flex:1;position:relative;background:#000;min-height:0;overflow:hidden}
+    .lbmedia video,.lbmedia img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+    .lbmsg{color:#F5A31A;font-size:12px;padding:6px 14px}.lbmsg:empty{display:none}
   </style>
   <div class="wrap">
     <button class="fab" id="fab" title="Abrir Ad Miner"><img id="fablogo" alt="Ad Miner"><span id="fabc">0</span></button>
@@ -531,9 +533,10 @@
     box.innerHTML = '';
     $('lbmsg').textContent = '';
     $('lbt').textContent = `${a.advertiser || 'Anúncio'} | ${lb.list.length ? (lb.idx + 1) + '/' + lb.list.length : 'sem mídia'}`;
-    $('lbc').innerHTML = `<div class="adv">${esc(a.advertiser || 'Sem nome')}</div>
+    $('lbc').innerHTML = `<div class="adv">${esc(a.advertiser || 'Sem nome')}<span class="tier ${a.tier}">${{ forte: 'Forte', medio: 'Médio', fraco: 'Fraco' }[a.tier] || ''}</span></div>
       ${metsHTML(a)}
       <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''} | Início ${fmtDate(a.start) || '?'}${a.cta ? ' | ' + esc(a.cta) : ''}<br>ID ${a.id}</div>
+      <div class="acts"><button data-lb="copy">Copiar texto</button><button data-lb="fav">${isSaved(a.id) ? '★ Salvo' : '☆ Salvar'}</button>${a.link ? '<button data-lb="site">Site</button>' : ''}</div>
       <h4>Copy</h4><div class="lbtext">${esc(a.copy) || 'Sem texto.'}</div>`;
     $('lbprev').style.display = $('lbnext').style.display = lb.list.length > 1 ? '' : 'none';
     if (!m) { $('lbmsg').textContent = 'Nenhuma mídia disponível para este anúncio.'; return; }
@@ -555,6 +558,16 @@
       box.appendChild(i);
     }
   }
+
+  $('lbc').addEventListener('click', async e => {
+    const b = e.target.closest('[data-lb]');
+    const a = b && getAd(lb.id);
+    if (!a) return;
+    const act = b.dataset.lb;
+    if (act === 'copy') { navigator.clipboard.writeText(a.copy || ''); b.textContent = 'Copiado'; }
+    if (act === 'site') window.open(a.link, '_blank', 'noopener');
+    if (act === 'fav') { const id = lb.id, idx = lb.idx; await toggleSave(id); if (lb.id === id) { lb.idx = idx; renderLightbox(); } }
+  });
 
   function openLightbox(id, idx) {
     const a = getAd(id);
