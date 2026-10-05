@@ -56,8 +56,10 @@
     const { el, ...rest } = a;
     return { ...rest, start: a.start ? new Date(a.start).toISOString() : null, end: a.end ? new Date(a.end).toISOString() : null };
   };
+  // salvos antigos guardaram o texto do badge dentro da copy
+  const OWN_TEXT = /\n?\d+\nDIAS NO AR\n\d+x\nVARIAÇÕES\n\d+\nSCORE( ★)?\nAmpliar mídia\s*$/;
   const revive = o => {
-    const a = { ...o, start: o.start ? new Date(o.start) : null, end: o.end ? new Date(o.end) : null };
+    const a = { ...o, copy: (o.copy || '').replace(OWN_TEXT, ''), start: o.start ? new Date(o.start) : null, end: o.end ? new Date(o.end) : null };
     if (a.start && !a.end && a.status === 'ativo') a.days = Math.max(1, Math.round((Date.now() - a.start) / DAY) + 1);
     return a;
   };
@@ -121,7 +123,11 @@
   }
 
   function extract(el, id) {
+    // esconde o que a extensao injetou no card para nao entrar na copy
+    const own = [...el.querySelectorAll('.am-badge, .am-zoom')];
+    own.forEach(n => { n.style.display = 'none'; });
     const text = el.innerText || '';
+    own.forEach(n => { n.style.display = ''; });
     const lines = text.split('\n').map(s => s.trim()).filter(Boolean);
 
     const status = (lines.find(l => /^(Ativo|Inativo|Active|Inactive)$/i.test(l)) || '').toLowerCase();
@@ -385,14 +391,21 @@
     .legend{font-size:10.5px;color:var(--mut);padding:0 14px 8px}
     .lb{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center}
     .lb.open{display:flex}
-    .lbbox{width:min(94vw,920px);max-height:96vh;display:flex;flex-direction:column;background:#12121f;border-radius:14px;overflow:hidden;color:#fff;border:1px solid #34345a}
+    .lbbox{width:min(96vw,1180px);height:min(92vh,820px);display:flex;flex-direction:column;background:#12121f;border-radius:14px;overflow:hidden;color:#fff;border:1px solid #34345a}
+    .lbbody{flex:1;display:flex;min-height:0}
+    .lbleft{flex:1;display:flex;flex-direction:column;min-width:0}
+    .lbside{flex:none;width:340px;overflow:auto;padding:14px;background:var(--bg);border-left:1px solid #2c2c4a}
+    .lbside .adv{font-size:15px;font-weight:700;color:var(--accent);margin-bottom:4px}
+    .lbside .mets{grid-template-columns:repeat(2,1fr)}
+    .lbside h4{margin:14px 0 6px;font-size:11px;letter-spacing:.5px;text-transform:uppercase;color:var(--mut)}
+    .lbtext{font-size:13px;line-height:1.5;color:#e4e4f2;white-space:pre-wrap;word-break:break-word}
+    @media (max-width:760px){.lbbody{flex-direction:column}.lbside{width:auto;max-height:45%;border-left:0;border-top:1px solid #2c2c4a}}
     .lbbar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;background:#1A1A2E;border-bottom:2px solid #F5A31A;flex-wrap:wrap}
     .lbbar b{font-size:13px}
     .lbbar button{background:#2c2c4a;color:#fff;border:0;border-radius:6px;padding:6px 10px;font-size:12px;cursor:pointer;margin-left:4px}
     .lbbar button:hover{background:#F5A31A;color:#1A1A2E}
-    .lbmedia{flex:1;display:flex;align-items:center;justify-content:center;background:#000;min-height:200px;overflow:hidden}
-    .lbmedia video,.lbmedia img{max-width:100%;max-height:72vh;object-fit:contain}
-    .lbcopy{padding:10px 14px;font-size:12px;max-height:16vh;overflow:auto;color:#d5d5e8;white-space:pre-wrap}
+    .lbmedia{flex:1;display:flex;align-items:center;justify-content:center;background:#000;min-height:0;overflow:hidden}
+    .lbmedia video,.lbmedia img{max-width:100%;max-height:100%;object-fit:contain}
     .lbmsg{color:#F5A31A;font-size:12px;padding:6px 14px}
   </style>
   <div class="wrap">
@@ -454,9 +467,13 @@
             <button id="lbclose">Fechar</button>
           </span>
         </div>
-        <div class="lbmedia" id="lbm"></div>
-        <div class="lbmsg" id="lbmsg"></div>
-        <div class="lbcopy" id="lbc"></div>
+        <div class="lbbody">
+          <div class="lbleft">
+            <div class="lbmedia" id="lbm"></div>
+            <div class="lbmsg" id="lbmsg"></div>
+          </div>
+          <div class="lbside" id="lbc"></div>
+        </div>
       </div>
     </div>
   </div>`;
@@ -514,7 +531,10 @@
     box.innerHTML = '';
     $('lbmsg').textContent = '';
     $('lbt').textContent = `${a.advertiser || 'Anúncio'} | ${lb.list.length ? (lb.idx + 1) + '/' + lb.list.length : 'sem mídia'}`;
-    $('lbc').textContent = a.copy || '';
+    $('lbc').innerHTML = `<div class="adv">${esc(a.advertiser || 'Sem nome')}</div>
+      ${metsHTML(a)}
+      <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''} | Início ${fmtDate(a.start) || '?'}${a.cta ? ' | ' + esc(a.cta) : ''}<br>ID ${a.id}</div>
+      <h4>Copy</h4><div class="lbtext">${esc(a.copy) || 'Sem texto.'}</div>`;
     $('lbprev').style.display = $('lbnext').style.display = lb.list.length > 1 ? '' : 'none';
     if (!m) { $('lbmsg').textContent = 'Nenhuma mídia disponível para este anúncio.'; return; }
     if (m.type === 'video') {
@@ -577,6 +597,13 @@
     $('tabfavs').textContent = `Salvos (${state.saved.size})`;
   }
 
+  const metsHTML = a => `<div class="mets">
+          <div class="met" title="Dias desde o início da veiculação"><b class="${a.days >= 45 ? 'c-g' : a.days >= 14 ? 'c-y' : 'c-n'}">${a.days}</b><small>dias no ar</small></div>
+          <div class="met" title="Quantidade de anúncios que usam este mesmo criativo e texto"><b class="${a.vars >= 3 ? 'c-p' : 'c-n'}">${a.vars}x</b><small>variações</small></div>
+          <div class="met score" title="Score de oferta de 0 a 100"><b class="${a.tier === 'forte' ? 'c-g' : a.tier === 'medio' ? 'c-y' : 'c-r'}">${a.score}</b><small>score</small></div>
+          <div class="met" title="Anúncios deste anunciante capturados nesta busca"><b class="c-n">${a.advAds || 1}</b><small>do anunciante</small></div>
+        </div>`;
+
   function rowHTML(a) {
     const src = a.thumbData || a.thumb;
     const live = a.el && a.el.isConnected;
@@ -588,12 +615,7 @@
       </div>
       <div class="info">
         <div class="top"><b title="${esc(a.advertiser)}">${esc(a.advertiser || 'Sem nome')}</b></div>
-        <div class="mets">
-          <div class="met" title="Dias desde o início da veiculação"><b class="${a.days >= 45 ? 'c-g' : a.days >= 14 ? 'c-y' : 'c-n'}">${a.days}</b><small>dias no ar</small></div>
-          <div class="met" title="Quantidade de anúncios que usam este mesmo criativo e texto"><b class="${a.vars >= 3 ? 'c-p' : 'c-n'}">${a.vars}x</b><small>variações</small></div>
-          <div class="met score" title="Score de oferta de 0 a 100"><b class="${a.tier === 'forte' ? 'c-g' : a.tier === 'medio' ? 'c-y' : 'c-r'}">${a.score}</b><small>score</small></div>
-          <div class="met" title="Anúncios deste anunciante capturados nesta busca"><b class="c-n">${a.advAds || 1}</b><small>do anunciante</small></div>
-        </div>
+        ${metsHTML(a)}
         <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''} | Início ${fmtDate(a.start) || '?'} | ID ${a.id}</div>
         <div class="copy">${esc((a.copy || '').slice(0, 160))}</div>
         <div class="acts">
