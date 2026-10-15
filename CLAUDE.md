@@ -41,7 +41,11 @@ Carregar: `chrome://extensions` > Modo do desenvolvedor > Carregar sem compacta�
 - Qualquer texto vindo da página entra no painel via `esc()`; não usar `innerHTML` com dado do anúncio sem escapar.
 - Identidade visual: fundo `#1A1A2E`, laranja `#F5A31A` como cor de destaque (abas ativas, botões, anúncios fortes, selo Dev), azul acinzentado `#7f93c9` para nível médio. Texto sobre laranja usa `#1A1A2E`. Logo e ícone brancos no painel escuro.
 - Recursos usados pelo content script precisam estar em `web_accessible_resources` no manifest.
-- Release: incrementar `version` no `manifest.json` e dar push na `main`; instalações existentes passam a mostrar "Nova versão disponível".
+- Release (nesta ordem, para o link de download nunca ficar quebrado):
+  1. incrementar `version` no `manifest.json`, atualizar o histórico do README e fazer commit;
+  2. `git push` na `main` (o aviso de atualização lê o manifest da `main`);
+  3. gerar o ZIP só com a pasta da extensão: `git archive --format=zip -o ad-miner.zip HEAD:ad-miner`;
+  4. `gh release create vX.Y.Z ad-miner.zip --title "vX.Y.Z" --notes "..."`. O nome do arquivo precisa ser sempre `ad-miner.zip`, porque o link `releases/latest/download/ad-miner.zip` (README e aviso no painel) depende dele.
 
 ## Problemas conhecidos (da análise)
 

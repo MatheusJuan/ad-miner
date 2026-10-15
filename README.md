@@ -34,11 +34,13 @@ Anúncio que fica muito tempo no ar, com várias variações do mesmo criativo, 
 
 ## Instalação
 
-A extensão ainda não está na Chrome Web Store. Para instalar manualmente:
+A extensão não está na Chrome Web Store. A instalação é manual e leva um minuto:
 
-1. Baixe o projeto: clique em **Code > Download ZIP** neste repositório e extraia, ou use `git clone https://github.com/MatheusJuan/ad-miner.git`.
+1. **[Baixe o ad-miner.zip](https://github.com/MatheusJuan/ad-miner/releases/latest/download/ad-miner.zip)** e extraia em uma pasta que você não vá apagar (por exemplo, `Documentos/ad-miner`).
 2. Abra `chrome://extensions` e ative o **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação** e selecione a pasta **`ad-miner/ad-miner`** (a que contém o `manifest.json`).
+3. Clique em **Carregar sem compactação** e selecione a pasta extraída (a que contém o `manifest.json`).
+
+Funciona também no Edge, Brave e Opera. O Chrome pode mostrar um aviso de extensão do modo desenvolvedor ao abrir: é esperado para instalação fora da loja.
 
 ## Como usar
 
@@ -51,10 +53,11 @@ A lista da página atual zera ao recarregar ou ao mudar a busca. Os anúncios sa
 
 ## Atualizações
 
-Clique no selo **Dev** no topo do painel para ver a versão instalada, se há uma versão mais nova publicada neste repositório e o link para o GitHub. A checagem compara o `version` do `manifest.json` da branch `main` com o da sua instalação. Para atualizar, baixe a versão nova, substitua a pasta e clique em recarregar a extensão em `chrome://extensions`.
+Clique no selo **Dev** no topo do painel para ver a versão instalada, se há uma versão mais nova publicada neste repositório e o link para o GitHub. A checagem compara o `version` do `manifest.json` da branch `main` com o da sua instalação. Para atualizar, [baixe o ZIP mais recente](https://github.com/MatheusJuan/ad-miner/releases/latest/download/ad-miner.zip), extraia por cima da pasta anterior (substituindo os arquivos) e clique em recarregar a extensão em `chrome://extensions`. Os anúncios salvos são mantidos.
 
 ### Histórico recente
 
+- **1.4.2:** link de download direto do ZIP no aviso de nova versão e no README.
 - **1.4.1:** chave Pix na aba Cafézinho.
 - **1.4.0:** aba Cafézinho para apoiar o projeto.
 - **1.3.0:** filtro de destino do clique (site, WhatsApp ou mensagem) e coluna `destino` nas exportações.

@@ -6,6 +6,7 @@
   const MONTHS = { jan: 0, fev: 1, mar: 2, abr: 3, mai: 4, jun: 5, jul: 6, ago: 7, set: 8, out: 9, nov: 10, dez: 11, feb: 1, apr: 3, may: 4, aug: 7, sep: 8, oct: 9, dec: 11 };
   const DAY = 864e5;
   const REPO = 'https://github.com/MatheusJuan/ad-miner';
+  const DOWNLOAD = REPO + '/releases/latest/download/ad-miner.zip'; // ZIP so com a pasta da extensao
   const LABEL_RE = /Identificação da biblioteca|Library ID/i;
   const ID_RE = /(?:Identificação da biblioteca|Library ID)\s*:?\s*(\d{6,})/i;
   const META_LINE = /^(Ativo|Inativo|Active|Inactive|Patrocinado|Sponsored|Ver resumo|Ver detalhes do anúncio|See ad details|See summary details|Plataformas|Platforms|\.\.\.|…)$/i;
@@ -528,7 +529,7 @@
         const v = r && r.version;
         if (chrome.runtime.lastError || !v) { checked = false; st.textContent = '⚠️ Não foi possível verificar a atualização.'; return; }
         st.innerHTML = newer(v, installed)
-          ? `⬆️ Nova versão <b>${esc(v)}</b> disponível. <a href="${REPO}" target="_blank" rel="noopener">Baixar</a>`
+          ? `⬆️ Nova versão <b>${esc(v)}</b> disponível. <a href="${DOWNLOAD}" target="_blank" rel="noopener">Baixar ZIP</a>`
           : '✅ Você está na versão mais recente.';
       });
     } catch (e) { checked = false; st.textContent = '⚠️ Recarregue a página para verificar.'; }
