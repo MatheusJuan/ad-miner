@@ -5,8 +5,7 @@
 
   /* ========================= CONFIG ========================= */
   const SCALE = 2;      // 2x = qualidade de tela retina
-  const SLICE = 1600;   // altura (css px) de cada captura; mantem a mensagem abaixo do limite do Chrome
-  const PART = 12000;   // altura (css px) de cada arquivo PNG; 12000 x 2 = 24000 px, abaixo do limite do canvas
+  const PART = 8000;    // altura (css px) de cada arquivo PNG; 8000 x 2 = 16000 px, abaixo do limite do canvas
   const TEXT_MAX = 7000;
   const TEMPLATE = 'Produto ou serviço: \nPúblico: \nOferta e preço: \nDiferenciais: \nProvas (resultados, depoimentos): ';
   const onLibrary = /(^|\.)facebook\.com$/.test(location.hostname) && location.pathname.startsWith('/ads/library');
@@ -27,12 +26,16 @@
   const host_ = location.hostname.replace(/^www\./, '');
 
   function download(name, blob) {
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = url;
     a.download = name;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    setTimeout(() => a.remove(), 1000);
+    // revogar cedo cancela o download de arquivos grandes ("verifique a conexao")
+    setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
   }
 
   async function toPng(blob) {
@@ -97,49 +100,85 @@
     return () => undo.forEach(([el, st]) => (st === null ? el.removeAttribute('style') : el.setAttribute('style', st)));
   }
 
-  async function loadLazy() {
-    const total = () => Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+  // elemento que de fato rola: o documento ou, em paginas com rolagem interna, o maior container
+  function findScroller() {
+    const de = document.scrollingElement || document.documentElement;
+    if (de.scrollHeight > window.innerHeight + 10) {
+      de.scrollTop = 1;
+      const moved = de.scrollTop > 0;
+      de.scrollTop = 0;
+      if (moved) return de;
+    }
+    let best = null, area = 0;
+    document.querySelectorAll('body *').forEach(el => {
+      if (el.scrollHeight <= el.clientHeight + 20) return;
+      if (el.clientHeight < window.innerHeight * 0.5 || el.clientWidth < window.innerWidth * 0.5) return;
+      if (!/(auto|scroll)/.test(getComputedStyle(el).overflowY)) return;
+      const a = el.clientWidth * el.clientHeight;
+      if (a > area) { area = a; best = el; }
+    });
+    return best || de;
+  }
+
+  async function loadLazy(sc) {
     const step = Math.max(300, Math.round(window.innerHeight * 0.8));
-    for (let y = 0, n = 0; y < total() && n < 80; y += step, n++) { window.scrollTo(0, y); await sleep(220); }
-    window.scrollTo(0, total());
+    for (let y = 0, n = 0; y < sc.scrollHeight && n < 80; y += step, n++) {
+      sc.scrollTo({ top: y, behavior: 'instant' });
+      await sleep(220);
+    }
+    sc.scrollTo({ top: sc.scrollHeight, behavior: 'instant' });
     await sleep(500);
-    window.scrollTo(0, 0);
+    sc.scrollTo({ top: 0, behavior: 'instant' });
     await sleep(500);
   }
 
+  // rola a pagina e captura o que esta na tela em cada passo (nunca pede area fora da tela ao Chrome)
   async function capture(setStatus) {
-    const restoreScroll = window.scrollY;
+    const html = document.documentElement;
+    const prevBehavior = html.style.getPropertyValue('scroll-behavior');
+    html.style.setProperty('scroll-behavior', 'auto', 'important');
+    const sc = findScroller();
+    const startTop = sc.scrollTop;
     setStatus('Carregando a página inteira...');
-    await loadLazy();
+    await loadLazy(sc);
     const restoreFixed = freezeFixed();
     ui.host.style.display = 'none';
     await sleep(250);
     const parts = [];
+    let repeated = false;
     try {
-      const W = Math.min(document.documentElement.clientWidth, 2560);
-      const H = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight);
+      const W = Math.min(html.clientWidth, 2560);
+      const VH = window.innerHeight;
+      const H = Math.max(sc.scrollHeight, VH);
       const nParts = Math.ceil(H / PART);
+      let prev = '';
       for (let p = 0; p < nParts; p++) {
-        const y0 = p * PART, h = Math.min(PART, H - y0);
+        const y0 = p * PART, ph = Math.min(PART, H - y0);
         const cv = document.createElement('canvas');
-        cv.width = W * SCALE; cv.height = Math.round(h * SCALE);
+        cv.width = W * SCALE; cv.height = Math.round(ph * SCALE);
         const ctx = cv.getContext('2d');
-        for (let y = 0; y < h; y += SLICE) {
-          const sh = Math.min(SLICE, h - y);
-          setStatus('Capturando ' + (p + 1) + '/' + nParts + ' (' + Math.round(((y0 + y) / H) * 100) + '%)...');
-          const r = await msg({ type: 'am-shot', x: 0, y: y0 + y, w: W, h: sh, scale: SCALE });
+        for (let y = y0; y < y0 + ph; y += VH) {
+          sc.scrollTo({ top: y, behavior: 'instant' });
+          await sleep(300);
+          const top = sc.scrollTop; // ja corrigido no fim da pagina
+          setStatus('Capturando ' + Math.min(100, Math.round(((top + VH) / H) * 100)) + '%...');
+          const r = await msg({ type: 'am-shot', x: 0, y: window.scrollY, w: W, h: VH, scale: SCALE });
           if (!r.data) throw new Error(r.error || 'falha na captura');
-          ctx.drawImage(await loadImage(r.data), 0, Math.round(y * SCALE));
+          if (prev && r.data === prev && top > 0) repeated = true;
+          prev = r.data;
+          ctx.drawImage(await loadImage(r.data), 0, (top - y0) * SCALE, W * SCALE, VH * SCALE);
         }
         parts.push(await toBlob(cv));
+        cv.width = cv.height = 0; // libera a memoria antes da proxima parte
       }
     } finally {
       await msg({ type: 'am-done' });
       restoreFixed();
       ui.host.style.display = '';
-      window.scrollTo(0, restoreScroll);
+      sc.scrollTo({ top: startTop, behavior: 'instant' });
+      if (prevBehavior) html.style.setProperty('scroll-behavior', prevBehavior); else html.style.removeProperty('scroll-behavior');
     }
-    return parts;
+    return { parts, repeated };
   }
 
   /* ========================= PROMPT ========================= */
@@ -334,8 +373,11 @@ Markdown com um título para cada passo. Frases curtas. Use listas e, na estrutu
       state.busy = true; $('cap').disabled = true;
       try {
         state.outline = pageOutline();
-        state.parts = await capture(status);
-        status('Pronto: ' + state.parts.length + ' imagem(ns). Use Baixar ou Copiar.');
+        const res = await capture(status);
+        state.parts = res.parts;
+        status(res.repeated
+          ? 'Atenção: trechos repetidos no print. A página deve usar rolagem interna; revise o resultado.'
+          : 'Pronto: ' + state.parts.length + ' imagem(ns). Use Baixar ou Copiar.');
         refreshPreview();
       } catch (e) {
         status('Erro: ' + (e.message || e) + '. Se o DevTools estiver aberto nesta aba, feche e tente de novo.');
@@ -344,7 +386,7 @@ Markdown com um título para cada passo. Frases curtas. Use listas e, na estrutu
     };
 
     $('dl').onclick = () => state.parts.forEach((b, i) =>
-      setTimeout(() => download('modelar-' + host_ + '-' + stamp() + (state.parts.length > 1 ? '-parte' + (i + 1) : '') + '.png', b), i * 400));
+      setTimeout(() => download('modelar-' + host_ + '-' + stamp() + (state.parts.length > 1 ? '-parte' + (i + 1) : '') + '.png', b), i * 1000));
 
     $('cp').onclick = async () => {
       try {

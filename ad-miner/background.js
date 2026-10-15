@@ -38,7 +38,7 @@ async function shot(tabId, m) {
   const r = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
     format: 'png',
     fromSurface: true,
-    captureBeyondViewport: true,
+    captureBeyondViewport: false, // so o que esta na tela; fora dela o Chrome repete trechos
     clip: { x: m.x, y: m.y, width: m.w, height: m.h, scale: m.scale }
   });
   return 'data:image/png;base64,' + r.data;
