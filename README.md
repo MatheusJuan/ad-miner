@@ -24,7 +24,7 @@ Anúncio que fica muito tempo no ar, com várias variações do mesmo criativo, 
   - **Anunciantes:** ranking com quantidade de anúncios, ativos, máximo e média de dias.
   - **Palavras:** termos e combinações de duas palavras mais repetidos nas copys, para achar ângulos e ganchos. Clicar em um termo filtra a lista.
   - **Salvos:** anúncios guardados no navegador, que continuam disponíveis ao recarregar a página.
-- **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia) e status (ativo ou inativo). O que não passa no filtro pode ser esmaecido ou ocultado na própria página.
+- **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia), status (ativo ou inativo) e destino do clique (site, WhatsApp ou mensagem). O que não passa no filtro pode ser esmaecido ou ocultado na própria página.
 - **Visualizador de mídia:** amplia vídeos e imagens, navega entre as mídias do anúncio, abre em tela cheia ou em nova aba e leva ao anúncio original na Biblioteca.
 - **Carregar tudo:** rola a página automaticamente até o limite de anúncios definido (padrão 400).
 - **Exportação:** CSV (separador `;`, compatível com Excel em português), JSON ou só a lista de IDs.

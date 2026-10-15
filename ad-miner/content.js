@@ -21,7 +21,7 @@
     open: false,
     scrolling: false,
     max: 400,
-    filters: { q: '', minDays: 0, minVar: 0, type: 'all', status: 'all', sort: 'score', dim: true, hide: false }
+    filters: { q: '', minDays: 0, minVar: 0, type: 'all', status: 'all', dest: 'all', sort: 'score', dim: true, hide: false }
   };
   const isSaved = id => state.saved.has(id);
   const getAd = id => state.ads.get(id) || state.saved.get(id);
@@ -174,6 +174,12 @@
       if (dl) domain = dl.toLowerCase();
     }
 
+    // destino do clique: whatsapp, mensagem (messenger/direct) ou site
+    let dest = '';
+    if (/(^|\.)(wa\.me|whatsapp\.com)$/i.test(domain) || /\/\/(wa\.me|api\.whatsapp\.com)/i.test(link) || /whats/i.test(cta)) dest = 'whatsapp';
+    else if (/^(m\.me|fb\.me|messenger\.com)$/i.test(domain) || /^(Enviar mensagem|Send message)$/i.test(cta)) dest = 'mensagem';
+    else if (domain || link) dest = 'site';
+
     // midia: videos e imagens grandes
     const media = [];
     const seen = new Set();
@@ -194,7 +200,7 @@
     let mediaKey = '';
     try { mediaKey = thumb ? new URL(thumb).pathname : ''; } catch (e) { /* ignora */ }
 
-    return { id, el, advertiser, copy, cta, domain, link, thumb, media, type, mediaKey, status: isActive ? 'ativo' : (status ? 'inativo' : ''), start, end, days, nativeVars };
+    return { id, el, advertiser, copy, cta, domain, link, dest, thumb, media, type, mediaKey, status: isActive ? 'ativo' : (status ? 'inativo' : ''), start, end, days, nativeVars };
   }
 
   /* ========================= METRICAS ========================= */
@@ -232,6 +238,7 @@
     if (a.vars < f.minVar) return false;
     if (f.type !== 'all' && a.type !== f.type) return false;
     if (f.status !== 'all' && a.status !== f.status) return false;
+    if (f.dest === 'any' ? a.dest !== 'site' && a.dest !== 'whatsapp' : f.dest !== 'all' && a.dest !== f.dest) return false;
     if (f.q) {
       const hay = norm([a.copy, a.advertiser, a.domain, a.id, a.cta].join(' '));
       if (!f.q.toLowerCase().split(/\s+/).every(t => hay.includes(norm(t)))) return false;
@@ -350,6 +357,7 @@
     .filters{padding:10px 14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--card)}
     .filters input,.filters select{width:100%;background:#12121f;border:1px solid #34345a;color:var(--txt);border-radius:6px;padding:6px;font-size:12px}
     .filters .full{grid-column:1/-1}
+    .filters .span2{grid-column:span 2}
     .filters label{font-size:11px;color:var(--mut);display:flex;align-items:center;gap:4px}
     .filters label input{width:auto}
     .list{flex:1;overflow:auto;padding:10px 14px}
@@ -443,7 +451,8 @@
         <select id="type"><option value="all">Mídia: todas</option><option value="video">Vídeo</option><option value="imagem">Imagem</option><option value="texto">Sem mídia</option></select>
         <select id="status"><option value="all">Status: todos</option><option value="ativo">Ativos</option><option value="inativo">Inativos</option></select>
         <label><input type="checkbox" id="dim" checked> Esmaecer</label>
-        <label class="full"><input type="checkbox" id="hide"> Ocultar na página os anúncios que não passam no filtro</label>
+        <select id="dest"><option value="all">Destino: todos</option><option value="any">Site ou WhatsApp</option><option value="site">Só site</option><option value="whatsapp">WhatsApp</option><option value="mensagem">Mensagem (Messenger)</option></select>
+        <label class="span2"><input type="checkbox" id="hide"> Ocultar na página o que não passa no filtro</label>
       </div>
       <div class="legend">Score: dias no ar (55%), variações (30%), volume do anunciante (15%). Forte 70+, Médio 40+. A lista reseta ao recarregar ou mudar a busca, os salvos ficam.</div>
       <div class="list" id="list"></div>
@@ -535,7 +544,7 @@
     $('lbt').textContent = `${a.advertiser || 'Anúncio'} | ${lb.list.length ? (lb.idx + 1) + '/' + lb.list.length : 'sem mídia'}`;
     $('lbc').innerHTML = `<div class="adv">${esc(a.advertiser || 'Sem nome')}<span class="tier ${a.tier}">${{ forte: 'Forte', medio: 'Médio', fraco: 'Fraco' }[a.tier] || ''}</span></div>
       ${metsHTML(a)}
-      <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''} | Início ${fmtDate(a.start) || '?'}${a.cta ? ' | ' + esc(a.cta) : ''}<br>ID ${a.id}</div>
+      <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''}${{ whatsapp: ' | WhatsApp', mensagem: ' | Mensagem' }[a.dest] || ''} | Início ${fmtDate(a.start) || '?'}${a.cta ? ' | ' + esc(a.cta) : ''}<br>ID ${a.id}</div>
       <div class="acts"><button data-lb="copy">Copiar texto</button><button data-lb="fav">${isSaved(a.id) ? '★ Salvo' : '☆ Salvar'}</button>${a.link ? '<button data-lb="site">Site</button>' : ''}</div>
       <h4>Copy</h4><div class="lbtext">${esc(a.copy) || 'Sem texto.'}</div>`;
     $('lbprev').style.display = $('lbnext').style.display = lb.list.length > 1 ? '' : 'none';
@@ -629,7 +638,7 @@
       <div class="info">
         <div class="top"><b title="${esc(a.advertiser)}">${esc(a.advertiser || 'Sem nome')}</b></div>
         ${metsHTML(a)}
-        <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''} | Início ${fmtDate(a.start) || '?'} | ID ${a.id}</div>
+        <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''}${{ whatsapp: ' | WhatsApp', mensagem: ' | Mensagem' }[a.dest] || ''} | Início ${fmtDate(a.start) || '?'} | ID ${a.id}</div>
         <div class="copy">${esc((a.copy || '').slice(0, 160))}</div>
         <div class="acts">
           ${hasMedia ? `<button class="view" data-act="view">${a.type === 'video' ? 'Ver vídeo' : 'Ver imagem'}</button>` : ''}
@@ -701,7 +710,7 @@
     refresh();
   });
   bind('q', 'q'); bind('minDays', 'minDays', true); bind('minVar', 'minVar', true);
-  bind('sort', 'sort'); bind('type', 'type'); bind('status', 'status'); bind('dim', 'dim'); bind('hide', 'hide');
+  bind('sort', 'sort'); bind('type', 'type'); bind('status', 'status'); bind('dest', 'dest'); bind('dim', 'dim'); bind('hide', 'hide');
   $('max').addEventListener('input', e => { state.max = +e.target.value || 400; });
 
   root.addEventListener('click', e => {
@@ -733,8 +742,8 @@
   });
 
   /* ========================= EXPORTACAO ========================= */
-  const COLS = ['id', 'anunciante', 'status', 'inicio', 'fim', 'dias_no_ar', 'variacoes', 'score', 'nivel', 'tipo_midia', 'dominio', 'cta', 'link_destino', 'copy', 'url_biblioteca'];
-  const rowOf = a => [a.id, a.advertiser, a.status, fmtDate(a.start), fmtDate(a.end), a.days, a.vars, a.score, a.tier, a.type, a.domain, a.cta, a.link, a.copy, 'https://www.facebook.com/ads/library/?id=' + a.id];
+  const COLS = ['id', 'anunciante', 'status', 'inicio', 'fim', 'dias_no_ar', 'variacoes', 'score', 'nivel', 'tipo_midia', 'destino', 'dominio', 'cta', 'link_destino', 'copy', 'url_biblioteca'];
+  const rowOf = a => [a.id, a.advertiser, a.status, fmtDate(a.start), fmtDate(a.end), a.days, a.vars, a.score, a.tier, a.type, a.dest, a.domain, a.cta, a.link, a.copy, 'https://www.facebook.com/ads/library/?id=' + a.id];
   const csvCell = v => '"' + String(v ?? '').replace(/"/g, '""').replace(/\n/g, ' ') + '"';
   const stamp = () => new Date().toISOString().slice(0, 10);
   const tag = () => (state.tab === 'favs' ? 'salvos' : 'lista');
