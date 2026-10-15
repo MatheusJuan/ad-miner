@@ -132,6 +132,27 @@
     await sleep(500);
   }
 
+  // detecta o defeito do Chrome em que um bloco do canto se repete em grade (quadrantes iguais)
+  function looksTiled(img) {
+    const n = 64, h = n / 2;
+    const cv = document.createElement('canvas');
+    cv.width = cv.height = n;
+    const c = cv.getContext('2d', { willReadFrequently: true });
+    c.drawImage(img, 0, 0, n, n);
+    const d = c.getImageData(0, 0, n, n).data;
+    let diff = 0, sum = 0, sum2 = 0;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < h; x++) {
+        const a = (y * n + x) * 4, r = (y * n + x + h) * 4, b = ((y + h) * n + x) * 4;
+        for (let k = 0; k < 3; k++) diff += Math.abs(d[a + k] - d[r + k]) + Math.abs(d[a + k] - d[b + k]);
+        const l = 0.3 * d[a] + 0.59 * d[a + 1] + 0.11 * d[a + 2];
+        sum += l; sum2 += l * l;
+      }
+    }
+    const cnt = h * h, mean = sum / cnt, sd = Math.sqrt(Math.max(0, sum2 / cnt - mean * mean));
+    return diff / (cnt * 6) < 2 && sd > 12; // quadrantes iguais e com conteudo (nao e area lisa)
+  }
+
   // rola a pagina e captura o que esta na tela em cada passo (nunca pede area fora da tela ao Chrome)
   async function capture(setStatus) {
     const html = document.documentElement;
@@ -139,14 +160,19 @@
     html.style.setProperty('scroll-behavior', 'auto', 'important');
     const sc = findScroller();
     const startTop = sc.scrollTop;
-    setStatus('Carregando a página inteira...');
-    await loadLazy(sc);
-    const restoreFixed = freezeFixed();
-    ui.host.style.display = 'none';
-    await sleep(250);
+    setStatus('Preparando a captura...');
+    // o depurador deixa a propria superficie da pagina em 2x; sem recorte ampliado
+    const b = await msg({ type: 'am-begin', w: window.innerWidth, h: window.innerHeight, scale: SCALE });
+    if (b.error) { html.style.removeProperty('scroll-behavior'); throw new Error(b.error); }
     const parts = [];
-    let repeated = false;
+    let repeated = false, restoreFixed = () => {};
     try {
+      setStatus('Carregando a página inteira...');
+      await sleep(400);
+      await loadLazy(sc);
+      restoreFixed = freezeFixed();
+      ui.host.style.display = 'none';
+      await sleep(300);
       const W = Math.min(html.clientWidth, 2560);
       const VH = window.innerHeight;
       const H = Math.max(sc.scrollHeight, VH);
@@ -159,14 +185,24 @@
         const ctx = cv.getContext('2d');
         for (let y = y0; y < y0 + ph; y += VH) {
           sc.scrollTo({ top: y, behavior: 'instant' });
-          await sleep(300);
+          await sleep(600); // tempo para animacoes de entrada terminarem
           const top = sc.scrollTop; // ja corrigido no fim da pagina
           setStatus('Capturando ' + Math.min(100, Math.round(((top + VH) / H) * 100)) + '%...');
-          const r = await msg({ type: 'am-shot', x: 0, y: window.scrollY, w: W, h: VH, scale: SCALE });
-          if (!r.data) throw new Error(r.error || 'falha na captura');
-          if (prev && r.data === prev && top > 0) repeated = true;
-          prev = r.data;
-          ctx.drawImage(await loadImage(r.data), 0, (top - y0) * SCALE, W * SCALE, VH * SCALE);
+          let img, data = '', bad = false;
+          for (let t = 0; t < 3; t++) {
+            const r = await msg({ type: 'am-shot' });
+            if (!r.data) throw new Error(r.error || 'falha na captura');
+            data = r.data;
+            img = await loadImage(data);
+            bad = looksTiled(img);
+            if (!bad) break;
+            await sleep(500);
+          }
+          if (bad || (prev && data === prev && top > 0)) repeated = true;
+          prev = data;
+          // a imagem inclui a barra de rolagem; recorta so a area de conteudo
+          const k = img.naturalWidth / window.innerWidth;
+          ctx.drawImage(img, 0, 0, W * k, VH * k, 0, (top - y0) * SCALE, W * SCALE, VH * SCALE);
         }
         parts.push(await toBlob(cv));
         cv.width = cv.height = 0; // libera a memoria antes da proxima parte

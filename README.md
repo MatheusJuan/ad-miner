@@ -69,6 +69,7 @@ Clique no selo **Dev** no topo do painel para ver a versão instalada, se há um
 
 ### Histórico recente
 
+- **1.6.2:** print completo mais confiável: captura em 2x pela própria superfície do navegador, detecta e refaz trechos repetidos e espera as animações de entrada terminarem.
 - **1.6.1:** correção do print completo (trechos repetidos em páginas longas) e do download do print, que falhava em arquivos grandes.
 - **1.6.0:** função **Modelar página**: print completo em alta qualidade, estrutura da página e prompt pronto para o Claude, com os insumos do produto e o anúncio de origem.
 - **1.5.0:** criativos repetidos agrupados na lista ("+N iguais"), variações contadas por anunciante, contador "mostrando X de Y", filtros lembrados entre sessões, miniaturas dos salvos mais confiáveis, CSV protegido contra fórmulas e "Limpar lista" que desfaz as marcações na página.

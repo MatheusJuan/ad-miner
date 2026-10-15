@@ -30,23 +30,30 @@ async function fetchData(url, max) {
 const attached = new Set();
 chrome.debugger.onDetach.addListener(src => attached.delete(src.tabId));
 
-async function shot(tabId, m) {
-  if (!attached.has(tabId)) {
-    await chrome.debugger.attach({ tabId }, '1.3');
-    attached.add(tabId);
-  }
-  const r = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
-    format: 'png',
-    fromSurface: true,
-    captureBeyondViewport: false, // so o que esta na tela; fora dela o Chrome repete trechos
-    clip: { x: m.x, y: m.y, width: m.w, height: m.h, scale: m.scale }
+async function ensure(tabId) {
+  if (attached.has(tabId)) return;
+  await chrome.debugger.attach({ tabId }, '1.3');
+  attached.add(tabId);
+}
+
+// deixa a superficie da pagina em 2x (qualidade retina) sem pedir recorte ampliado, que repetia blocos
+async function begin(tabId, m) {
+  await ensure(tabId);
+  await chrome.debugger.sendCommand({ tabId }, 'Emulation.setDeviceMetricsOverride', {
+    width: m.w, height: m.h, deviceScaleFactor: m.scale, mobile: false
   });
+}
+
+async function shot(tabId) {
+  await ensure(tabId);
+  const r = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', { format: 'png', fromSurface: true });
   return 'data:image/png;base64,' + r.data;
 }
 
 async function release(tabId) {
   if (!attached.has(tabId)) return;
   attached.delete(tabId);
+  try { await chrome.debugger.sendCommand({ tabId }, 'Emulation.clearDeviceMetricsOverride'); } catch (e) { /* ignora */ }
   try { await chrome.debugger.detach({ tabId }); } catch (e) { /* ja desanexado */ }
 }
 
@@ -94,9 +101,14 @@ chrome.runtime.onMessage.addListener((msg, sender, send) => {
     return true;
   }
 
-  // captura de uma faixa da pagina
+  // modelar pagina: prepara a superficie, captura a tela atual e encerra
+  if (msg.type === 'am-begin' && tabId !== undefined) {
+    begin(tabId, msg).then(() => send({ ok: true })).catch(e => send({ error: String((e && e.message) || e) }));
+    return true;
+  }
+
   if (msg.type === 'am-shot' && tabId !== undefined) {
-    shot(tabId, msg).then(d => send({ data: d })).catch(e => send({ error: String((e && e.message) || e) }));
+    shot(tabId).then(d => send({ data: d })).catch(e => send({ error: String((e && e.message) || e) }));
     return true;
   }
 
