@@ -81,8 +81,7 @@
 
   /* ========================= CAPTURA ========================= */
   // fixos viram absolutos no topo (ou somem) para nao se repetirem ao longo do print
-  function freezeFixed() {
-    const undo = [];
+  function freezeFixed(undo) {
     document.querySelectorAll('body *').forEach(el => {
       const cs = getComputedStyle(el);
       if (cs.position !== 'fixed' && cs.position !== 'sticky') return;
@@ -97,7 +96,19 @@
         el.style.setProperty('visibility', 'hidden', 'important');
       }
     });
-    return () => undo.forEach(([el, st]) => (st === null ? el.removeAttribute('style') : el.setAttribute('style', st)));
+    // restaura do ultimo para o primeiro: o mesmo elemento pode ter sido alterado mais de uma vez
+    return () => undo.slice().reverse().forEach(([el, st]) => (st === null ? el.removeAttribute('style') : el.setAttribute('style', st)));
+  }
+
+  // cabecalhos que so ficam fixos depois de rolar (classe adicionada por script do site): somem nas telas seguintes,
+  // porque ja foram capturados no lugar certo, no topo da primeira tela
+  function hideFixedNow(undo) {
+    document.querySelectorAll('body *').forEach(el => {
+      const pos = getComputedStyle(el).position;
+      if ((pos !== 'fixed' && pos !== 'sticky') || el.style.visibility === 'hidden') return;
+      undo.push([el, el.getAttribute('style')]);
+      el.style.setProperty('visibility', 'hidden', 'important');
+    });
   }
 
   // elemento que de fato rola: o documento ou, em paginas com rolagem interna, o maior container
@@ -166,11 +177,12 @@
     if (b.error) { html.style.removeProperty('scroll-behavior'); throw new Error(b.error); }
     const parts = [];
     let repeated = false, restoreFixed = () => {};
+    const undo = [];
     try {
       setStatus('Carregando a página inteira...');
       await sleep(400);
       await loadLazy(sc);
-      restoreFixed = freezeFixed();
+      restoreFixed = freezeFixed(undo);
       ui.host.style.display = 'none';
       await sleep(300);
       const W = Math.min(html.clientWidth, 2560);
@@ -187,6 +199,7 @@
           sc.scrollTo({ top: y, behavior: 'instant' });
           await sleep(600); // tempo para animacoes de entrada terminarem
           const top = sc.scrollTop; // ja corrigido no fim da pagina
+          if (top > 0) { hideFixedNow(undo); await sleep(120); }
           setStatus('Capturando ' + Math.min(100, Math.round(((top + VH) / H) * 100)) + '%...');
           let img, data = '', bad = false;
           for (let t = 0; t < 3; t++) {
