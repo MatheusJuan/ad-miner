@@ -663,15 +663,16 @@
 
   // enderecos para doacao (fixos no codigo, nunca vindos da pagina)
   const DONATE = [
+    { name: 'Pix', net: 'Chave aleatória (qualquer banco)', addr: 'f5c8ac92-9089-421f-867a-3009c70ba022', label: 'Copiar chave Pix' },
     { name: 'Bitcoin', net: 'Rede Bitcoin (BTC)', addr: 'bc1qwnh9fm5fw4z9w9sf9dm6q5mma7djuyy743g5h2' },
     { name: 'Ethereum', net: 'Rede Ethereum (ETH)', addr: '0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B' },
     { name: 'Dólar digital', net: 'USDT ou USDC na rede Ethereum (ERC-20)', addr: '0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B' },
     { name: 'Solana', net: 'Rede Solana (SOL)', addr: '9WbXEo6xZCuS29beCY3keeTYb19JcWFm71UQj6HJcjiL' }
   ];
 
-  const cafeHTML = () => `<div class="cafe-intro">☕ <b>Pague um cafezinho</b><br>O Ad Miner é feito e mantido por uma pessoa só. Se ele te ajuda a achar boas ofertas, qualquer valor em criptomoeda ajuda a manter o projeto vivo. É totalmente opcional: a ferramenta funciona igual para todo mundo.</div>
-    ${DONATE.map(c => `<div class="coin"><div class="nm">${esc(c.name)}</div><div class="net">${esc(c.net)}</div><code>${esc(c.addr)}</code><button data-copy="${esc(c.addr)}">Copiar endereço</button></div>`).join('')}
-    <div class="cafe-note">Confira a rede antes de enviar. Mandar uma moeda pela rede errada pode perder o valor. Obrigado pelo apoio! 💛</div>`;
+  const cafeHTML = () => `<div class="cafe-intro">☕ <b>Pague um cafezinho</b><br>O Ad Miner é feito e mantido por uma pessoa só. Se ele te ajuda a achar boas ofertas, qualquer valor via Pix ou criptomoeda ajuda a manter o projeto vivo. É totalmente opcional: a ferramenta funciona igual para todo mundo.</div>
+    ${DONATE.map(c => `<div class="coin"><div class="nm">${esc(c.name)}</div><div class="net">${esc(c.net)}</div><code>${esc(c.addr)}</code><button data-copy="${esc(c.addr)}" data-label="${esc(c.label || 'Copiar endereço')}">${esc(c.label || 'Copiar endereço')}</button></div>`).join('')}
+    <div class="cafe-note">Em criptomoeda, confira a rede antes de enviar: mandar pela rede errada pode perder o valor. Obrigado pelo apoio! 💛</div>`;
 
   function renderList() {
     const el = $('list');
@@ -742,7 +743,7 @@
     if (cp) {
       navigator.clipboard.writeText(cp.dataset.copy);
       cp.textContent = 'Copiado';
-      setTimeout(() => { cp.textContent = 'Copiar endereço'; }, 1500);
+      setTimeout(() => { cp.textContent = cp.dataset.label; }, 1500);
       return;
     }
     const chip = e.target.closest('[data-q]');

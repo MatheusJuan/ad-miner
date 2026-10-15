@@ -24,7 +24,7 @@ Anúncio que fica muito tempo no ar, com várias variações do mesmo criativo, 
   - **Anunciantes:** ranking com quantidade de anúncios, ativos, máximo e média de dias.
   - **Palavras:** termos e combinações de duas palavras mais repetidos nas copys, para achar ângulos e ganchos. Clicar em um termo filtra a lista.
   - **Salvos:** anúncios guardados no navegador, que continuam disponíveis ao recarregar a página.
-  - **☕ Cafézinho:** endereços de criptomoeda para quem quiser apoiar o projeto (opcional).
+  - **☕ Cafézinho:** chave Pix e endereços de criptomoeda para quem quiser apoiar o projeto (opcional).
 - **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia), status (ativo ou inativo) e destino do clique (site, WhatsApp ou mensagem). O que não passa no filtro pode ser esmaecido ou ocultado na própria página.
 - **Destino do clique:** cada anúncio é classificado como site, WhatsApp ou mensagem (Messenger), e a opção "Site ou WhatsApp" mostra só os que levam o lead para um canal de contato.
 - **Visualizador de mídia:** a mídia ocupa a área principal, com tela cheia, abertura em nova aba e link para o anúncio original. Na lateral ficam o anunciante, o nível (forte, médio ou fraco), os destaques (dias no ar, variações, score e volume do anunciante), os dados do anúncio, a copy e os botões de copiar texto, salvar e abrir o site.
@@ -55,6 +55,7 @@ Clique no selo **Dev** no topo do painel para ver a versão instalada, se há um
 
 ### Histórico recente
 
+- **1.4.1:** chave Pix na aba Cafézinho.
 - **1.4.0:** aba Cafézinho para apoiar o projeto.
 - **1.3.0:** filtro de destino do clique (site, WhatsApp ou mensagem) e coluna `destino` nas exportações.
 - **1.2.x:** novo topo do painel com versão e checagem de atualização, destaque em laranja, logo no botão flutuante, visualizador com lateral de copy e destaques, e badge isolado do CSS do Facebook.
@@ -88,16 +89,17 @@ Não há build nem dependências: é JavaScript puro. Para desenvolver, edite os
 
 ## Apoie o projeto ☕
 
-O Ad Miner é feito e mantido por uma pessoa só e continua funcionando igual para todo mundo. Se ele te ajuda a achar boas ofertas, você pode pagar um cafezinho em criptomoeda. Os mesmos endereços estão na aba **Cafézinho** do painel, com botão de copiar.
+O Ad Miner é feito e mantido por uma pessoa só e continua funcionando igual para todo mundo. Se ele te ajuda a achar boas ofertas, você pode pagar um cafezinho por Pix ou criptomoeda. As mesmas chaves e endereços estão na aba **Cafézinho** do painel, com botão de copiar.
 
-| Moeda | Rede | Endereço |
+| Moeda | Rede | Chave ou endereço |
 | --- | --- | --- |
+| Pix | Chave aleatória | `f5c8ac92-9089-421f-867a-3009c70ba022` |
 | Bitcoin | Bitcoin | `bc1qwnh9fm5fw4z9w9sf9dm6q5mma7djuyy743g5h2` |
 | Ethereum | Ethereum | `0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B` |
 | Dólar digital (USDT ou USDC) | Ethereum (ERC-20) | `0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B` |
 | Solana | Solana | `9WbXEo6xZCuS29beCY3keeTYb19JcWFm71UQj6HJcjiL` |
 
-Confira a rede antes de enviar: mandar uma moeda pela rede errada pode perder o valor.
+Em criptomoeda, confira a rede antes de enviar: mandar uma moeda pela rede errada pode perder o valor.
 
 ## Aviso
 
