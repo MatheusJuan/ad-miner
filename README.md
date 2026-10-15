@@ -29,6 +29,7 @@ Anúncio que fica muito tempo no ar, com várias variações do mesmo criativo, 
 - **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia), status (ativo ou inativo) e destino do clique (site, WhatsApp ou mensagem). O que não passa no filtro pode ser esmaecido ou ocultado na própria página. Os filtros ficam salvos entre sessões (menos o texto da busca) e o painel mostra quantos anúncios estão sendo exibidos.
 - **Destino do clique:** cada anúncio é classificado como site, WhatsApp ou mensagem (Messenger), e a opção "Site ou WhatsApp" mostra só os que levam o lead para um canal de contato.
 - **Visualizador de mídia:** a mídia ocupa a área principal, com tela cheia, abertura em nova aba e link para o anúncio original. Na lateral ficam o anunciante, o nível (forte, médio ou fraco), os destaques (dias no ar, variações, score e volume do anunciante), os dados do anúncio, a copy e os botões de copiar texto, salvar e abrir o site.
+- **Modelar página:** clique no ícone do Ad Miner na barra do navegador em qualquer página de destino (por exemplo, a landing page de um anúncio). A extensão gera o **print completo da página em alta qualidade (2x)**, extrai a estrutura (títulos, botões, formulários, preços e texto) e monta um **prompt pronto para colar no Claude**. O prompt funciona como um mini agente: faz uma entrevista rápida se faltar informação, diagnostica a página, aponta os pontos fortes, compara anúncio e página e entrega a remodelagem da sua oferta, a estrutura da página seção por seção e três ângulos de anúncio. Você preenche os insumos do seu produto uma vez e eles ficam salvos. Se você abriu a página pelo botão **Site** do painel, o anúncio de origem entra no prompt e os criativos ficam prontos para copiar ou baixar.
 - **Carregar tudo:** rola a página automaticamente até o limite de anúncios definido (padrão 400).
 - **Exportação:** CSV (separador `;`, compatível com Excel em português), JSON ou só a lista de IDs.
 - **Português e inglês:** reconhece a Biblioteca nos dois idiomas.
@@ -52,12 +53,23 @@ Funciona também no Edge, Brave e Opera. O Chrome pode mostrar um aviso de exten
 
 A lista da página atual zera ao recarregar ou ao mudar a busca. Os anúncios salvos permanecem.
 
+### Modelar página
+
+1. No painel, clique em **Site** no anúncio que você quer estudar. A página de destino abre em outra aba.
+2. Nessa aba, clique no ícone do Ad Miner na barra do navegador. Se não aparecer, fixe-o pelo menu de extensões.
+3. Preencha **Seus insumos** (produto, público, oferta, diferenciais e provas).
+4. Clique em **Capturar página**. O Chrome mostra uma faixa de depuração por alguns segundos, e isso é esperado. Páginas muito longas saem em mais de um arquivo.
+5. Clique em **Copiar prompt**, cole no Claude e depois cole ou anexe o print e os criativos do anúncio (os botões **Copiar criativo** e **Baixar** estão no mesmo painel).
+
+Dicas: feche o DevTools da aba antes de capturar e evite páginas com dados pessoais (painéis, e-mails, contas).
+
 ## Atualizações
 
 Clique no selo **Dev** no topo do painel para ver a versão instalada, se há uma versão mais nova publicada neste repositório e o link para o GitHub. A checagem compara o `version` do `manifest.json` da branch `main` com o da sua instalação. Para atualizar, [baixe o ZIP mais recente](https://github.com/MatheusJuan/ad-miner/releases/latest/download/ad-miner.zip), extraia por cima da pasta anterior (substituindo os arquivos) e clique em recarregar a extensão em `chrome://extensions`. Os anúncios salvos são mantidos.
 
 ### Histórico recente
 
+- **1.6.0:** função **Modelar página**: print completo em alta qualidade, estrutura da página e prompt pronto para o Claude, com os insumos do produto e o anúncio de origem.
 - **1.5.0:** criativos repetidos agrupados na lista ("+N iguais"), variações contadas por anunciante, contador "mostrando X de Y", filtros lembrados entre sessões, miniaturas dos salvos mais confiáveis, CSV protegido contra fórmulas e "Limpar lista" que desfaz as marcações na página.
 - **1.4.2:** link de download direto do ZIP no aviso de nova versão e no README.
 - **1.4.1:** chave Pix na aba Cafézinho.
@@ -67,7 +79,7 @@ Clique no selo **Dev** no topo do painel para ver a versão instalada, se há um
 
 ## Privacidade
 
-Tudo roda no seu navegador. Os dados dos anúncios e os salvos ficam em `chrome.storage.local` e não são enviados a nenhum servidor. As requisições externas feitas pela extensão são a leitura do `manifest.json` deste repositório, para a checagem de versão, e o download da miniatura de um anúncio no momento em que você o salva.
+Tudo roda no seu navegador. Os dados dos anúncios e os salvos ficam em `chrome.storage.local` e não são enviados a nenhum servidor. As requisições externas feitas pela extensão são a leitura do `manifest.json` deste repositório, para a checagem de versão, e o download de miniaturas e criativos de anúncios (do CDN da Meta) quando você salva, copia ou baixa um anúncio. O **Modelar página** só age quando você clica no ícone: o print, o texto da página e os insumos ficam no seu computador e só saem dele quando você cola o prompt na IA que escolher.
 
 ## Estrutura
 
@@ -78,7 +90,8 @@ ad-miner/                 raiz do repositório
   ad-miner/               pasta da extensão
     manifest.json
     content.js            leitura da página, métricas e painel
-    background.js         checagem de versão no GitHub
+    background.js         versão no GitHub, miniaturas e print da página
+    lp.js                 Modelar página (injetado ao clicar no ícone)
     assets/               logo e ícones usados pela extensão
 ```
 

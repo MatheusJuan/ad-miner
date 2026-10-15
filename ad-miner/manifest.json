@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ad Miner - Mineração na Biblioteca de Anúncios",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Analisa a Biblioteca de Anúncios da Meta: dias no ar, variações do criativo, score de oferta, ranking de anunciantes, palavras mais usadas, visualizador de mídia e exportação.",
   "icons": {
     "16": "assets/icon-16.png",
@@ -10,7 +10,10 @@
   },
   "permissions": [
     "storage",
-    "unlimitedStorage"
+    "unlimitedStorage",
+    "activeTab",
+    "scripting",
+    "debugger"
   ],
   "host_permissions": [
     "https://raw.githubusercontent.com/MatheusJuan/ad-miner/*",
@@ -40,5 +43,13 @@
       ],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "action": {
+    "default_title": "Modelar página",
+    "default_icon": {
+      "16": "assets/icon-16.png",
+      "48": "assets/icon-48.png",
+      "128": "assets/icon-128.png"
+    }
+  }
 }

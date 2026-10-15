@@ -13,7 +13,8 @@ ad-miner/                 raiz do repositório
   ad-miner/               pasta da extensão (é esta que se carrega no Chrome)
     manifest.json
     content.js            todo o código da página (IIFE única, ~780 linhas)
-    background.js         service worker: busca a versão publicada no GitHub (raw) para o aviso de atualização
+    background.js         service worker: versão no GitHub, miniaturas e criativos do CDN, depurador para o print e clique no ícone
+    lp.js                 Modelar página: injetado sob demanda (activeTab) em qualquer página de destino
     assets/               logo-white.png (560x159) e icon-16/48/128.png, gerados do icon-white original
 ```
 
@@ -32,12 +33,16 @@ Carregar: `chrome://extensions` > Modo do desenvolvedor > Carregar sem compacta�
 - **Lista agrupada:** `groupKey`/`grouped` reduzem anúncios do mesmo anunciante com a mesma mídia (ou texto) a uma linha, com `a.grp` = quantidade. `currentList(false)` devolve todos e é o que as exportações usam.
 - **Filtros persistidos:** `FKEYS` em `chrome.storage.local` (`amFilters`); o texto de busca não persiste.
 - **Background:** `am-latest` (versão no GitHub) e `am-thumb` (miniatura do CDN `*.fbcdn.net`, só https e até 600 KB).
+- **Modelar página (lp.js):** o clique no ícone da extensão (`chrome.action.onClicked` no background) injeta o `lp.js` na aba. Ele rola a página para carregar imagens, congela elementos fixos e pede ao background fatias de 1600 px (CSS) via `Page.captureScreenshot` do depurador (`captureBeyondViewport`, escala 2). As fatias são costuradas em canvas e saem em arquivos PNG de até 12000 px de altura. A estrutura da página (`pageOutline`) e o prompt (`buildPrompt`, em XML para o Claude) são montados localmente. O anúncio de origem vem de `amLastAd` (gravado por `rememberAd` ao clicar em "Site", válido por 24 h) e os insumos do usuário ficam em `amLpInputs`. O texto da página entra entre tags e `</` é neutralizado para o conteúdo de terceiros não fechar as tags do prompt.
+- **Permissões:** `storage`, `unlimitedStorage`, `activeTab`, `scripting` e `debugger` (print em alta qualidade; o Chrome mostra a faixa de depuração durante a captura).
 - **Estado:** `state.ads` (página atual, zera ao mudar a busca ou recarregar) e `state.saved` (persistido em `chrome.storage.local`, chave `amSaved`, com thumbnail em data URL quando cabe em 600 KB).
 - **SPA:** `MutationObserver` com debounce dispara `scan`; um `setInterval` de 1 s detecta mudança de `location.href` e reinicia a lista.
 - **Topo do painel:** logo branca, origem e selo laranja "Dev" (ou `vX.Y.Z` se instalada pela loja). Clicar no selo abre o box com versão instalada, status de atualização e link do repositório. O status vem do `background.js`, que lê `ad-miner/manifest.json` da branch `main` em `raw.githubusercontent.com` e compara a versão. Para o aviso funcionar, o repositório precisa ser público e a versão do manifest em `main` deve ser incrementada a cada release.
 - **Botão flutuante:** pílula escura com borda laranja, logo branca e contador de anúncios capturados.
 
 ## Convenções
+
+- Não há content script em todos os sites: o `lp.js` só roda quando o usuário clica no ícone (`activeTab`).
 
 - Código em JavaScript puro, sem dependências. Comentários curtos em português, sem acentos nos comentários do código.
 - Textos de interface em pt-BR.

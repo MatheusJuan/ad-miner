@@ -1,6 +1,7 @@
-// tarefas que o content script nao consegue fazer (CORS/CSP da pagina)
+// tarefas que o content script nao consegue fazer (CORS/CSP da pagina, depurador, icone da barra)
 const MANIFEST_URL = 'https://raw.githubusercontent.com/MatheusJuan/ad-miner/main/ad-miner/manifest.json';
 const MAX_THUMB = 600000;
+const MAX_IMAGE = 8e6;
 
 const toDataUrl = blob => new Promise(res => {
   const f = new FileReader();
@@ -9,8 +10,61 @@ const toDataUrl = blob => new Promise(res => {
   f.readAsDataURL(blob);
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, send) => {
+// so https do CDN da Meta: o content script nao vira um proxy aberto
+const isCdn = url => {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && /(^|\.)fbcdn\.net$/.test(u.hostname);
+  } catch (e) { return false; }
+};
+
+async function fetchData(url, max) {
+  if (!isCdn(url)) return '';
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(r.status);
+  const b = await r.blob();
+  return b.size > max ? '' : toDataUrl(b);
+}
+
+/* ========================= MODELAR PAGINA ========================= */
+const attached = new Set();
+chrome.debugger.onDetach.addListener(src => attached.delete(src.tabId));
+
+async function shot(tabId, m) {
+  if (!attached.has(tabId)) {
+    await chrome.debugger.attach({ tabId }, '1.3');
+    attached.add(tabId);
+  }
+  const r = await chrome.debugger.sendCommand({ tabId }, 'Page.captureScreenshot', {
+    format: 'png',
+    fromSurface: true,
+    captureBeyondViewport: true,
+    clip: { x: m.x, y: m.y, width: m.w, height: m.h, scale: m.scale }
+  });
+  return 'data:image/png;base64,' + r.data;
+}
+
+async function release(tabId) {
+  if (!attached.has(tabId)) return;
+  attached.delete(tabId);
+  try { await chrome.debugger.detach({ tabId }); } catch (e) { /* ja desanexado */ }
+}
+
+// clique no icone da extensao: abre o painel Modelar pagina na aba atual
+chrome.action.onClicked.addListener(async tab => {
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['lp.js'] });
+  } catch (e) {
+    // pagina interna do navegador ou loja: nao da para injetar
+    chrome.action.setBadgeText({ tabId: tab.id, text: '!' });
+    setTimeout(() => chrome.action.setBadgeText({ tabId: tab.id, text: '' }), 2500);
+  }
+});
+
+/* ========================= MENSAGENS ========================= */
+chrome.runtime.onMessage.addListener((msg, sender, send) => {
   if (!msg) return;
+  const tabId = sender.tab && sender.tab.id;
 
   // versao publicada no repositorio
   if (msg.type === 'am-latest') {
@@ -21,19 +75,33 @@ chrome.runtime.onMessage.addListener((msg, _sender, send) => {
     return true; // resposta assincrona
   }
 
-  // miniatura de anuncio salvo, so de hosts do CDN da Meta
+  // miniatura de anuncio salvo
   if (msg.type === 'am-thumb') {
-    let ok = false;
-    try {
-      const u = new URL(msg.url);
-      ok = u.protocol === 'https:' && /(^|\.)fbcdn\.net$/.test(u.hostname);
-    } catch (e) { /* url invalida */ }
-    if (!ok) { send({ data: '' }); return; }
-    fetch(msg.url)
-      .then(r => (r.ok ? r.blob() : Promise.reject(new Error(r.status))))
-      .then(b => (b.size > MAX_THUMB ? '' : toDataUrl(b)))
-      .then(d => send({ data: d }))
-      .catch(() => send({ data: '' }));
+    fetchData(msg.url, MAX_THUMB).then(d => send({ data: d })).catch(() => send({ data: '' }));
+    return true;
+  }
+
+  // criativo do anuncio para copiar ou baixar
+  if (msg.type === 'am-image') {
+    fetchData(msg.url, MAX_IMAGE).then(d => send({ data: d })).catch(() => send({ data: '' }));
+    return true;
+  }
+
+  // arquivo da propria extensao (logo) para a pagina, sem expor recurso acessivel
+  if (msg.type === 'am-asset') {
+    if (!/^assets\/[\w.-]+\.png$/.test(msg.path || '')) { send({ data: '' }); return; }
+    fetch(chrome.runtime.getURL(msg.path)).then(r => r.blob()).then(toDataUrl).then(d => send({ data: d })).catch(() => send({ data: '' }));
+    return true;
+  }
+
+  // captura de uma faixa da pagina
+  if (msg.type === 'am-shot' && tabId !== undefined) {
+    shot(tabId, msg).then(d => send({ data: d })).catch(e => send({ error: String((e && e.message) || e) }));
+    return true;
+  }
+
+  if (msg.type === 'am-done' && tabId !== undefined) {
+    release(tabId).then(() => send({ ok: true }));
     return true;
   }
 });

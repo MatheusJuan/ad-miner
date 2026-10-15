@@ -33,6 +33,19 @@
   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '').trim();
   const fmtDate = d => (d ? new Date(d).toLocaleDateString('pt-BR') : '');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  // guarda o anuncio de origem para o Modelar pagina ligar anuncio e pagina de destino
+  function rememberAd(a) {
+    try {
+      chrome.storage.local.set({
+        amLastAd: {
+          id: a.id, advertiser: a.advertiser, copy: a.copy, cta: a.cta, domain: a.domain, link: a.link,
+          dest: a.dest, days: a.days, vars: a.vars, score: a.score, tier: a.tier, type: a.type, thumb: a.thumb,
+          media: (a.media || []).slice(0, 4).map(x => ({ type: x.type, src: x.src, poster: x.poster })),
+          ts: Date.now()
+        }
+      });
+    } catch (e) { /* ignora */ }
+  }
   const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : '');
 
   function parseDate(s) {
@@ -587,7 +600,7 @@
     $('lbc').innerHTML = `<div class="adv">${esc(a.advertiser || 'Sem nome')}<span class="tier ${a.tier}">${{ forte: 'Forte', medio: 'Médio', fraco: 'Fraco' }[a.tier] || ''}</span></div>
       ${metsHTML(a)}
       <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''}${{ whatsapp: ' | WhatsApp', mensagem: ' | Mensagem' }[a.dest] || ''} | Início ${fmtDate(a.start) || '?'}${a.cta ? ' | ' + esc(a.cta) : ''}<br>ID ${a.id}</div>
-      <div class="acts"><button data-lb="copy">Copiar texto</button><button data-lb="fav">${isSaved(a.id) ? '★ Salvo' : '☆ Salvar'}</button>${a.link ? '<button data-lb="site">Site</button>' : ''}</div>
+      <div class="acts"><button data-lb="copy">Copiar texto</button><button data-lb="fav">${isSaved(a.id) ? '★ Salvo' : '☆ Salvar'}</button>${a.link ? '<button data-lb="site" title="Abre o site do anúncio. Lá, clique no ícone do Ad Miner para Modelar página.">Site</button>' : ''}</div>
       <h4>Copy</h4><div class="lbtext">${esc(a.copy) || 'Sem texto.'}</div>`;
     $('lbprev').style.display = $('lbnext').style.display = lb.list.length > 1 ? '' : 'none';
     if (!m) { $('lbmsg').textContent = 'Nenhuma mídia disponível para este anúncio.'; return; }
@@ -616,7 +629,7 @@
     if (!a) return;
     const act = b.dataset.lb;
     if (act === 'copy') { navigator.clipboard.writeText(a.copy || ''); b.textContent = 'Copiado'; }
-    if (act === 'site' && safeUrl(a.link)) window.open(a.link, '_blank', 'noopener');
+    if (act === 'site' && safeUrl(a.link)) { rememberAd(a); window.open(a.link, '_blank', 'noopener'); }
     if (act === 'fav') { const id = lb.id, idx = lb.idx; await toggleSave(id); if (lb.id === id) { lb.idx = idx; renderLightbox(); } }
   });
 
@@ -688,7 +701,7 @@
           <button data-act="open">Biblioteca</button>
           <button data-act="copy">Copiar texto</button>
           <button data-act="fav">${isSaved(a.id) ? '★ Salvo' : '☆ Salvar'}</button>
-          ${a.link ? '<button data-act="site">Site</button>' : ''}
+          ${a.link ? '<button data-act="site" title="Abre o site do anúncio. Lá, clique no ícone do Ad Miner para Modelar página.">Site</button>' : ''}
         </div>
       </div></div>`;
   }
@@ -813,7 +826,7 @@
       setTimeout(() => { a.el.style.boxShadow = old; }, 1500);
     }
     if (act === 'open') window.open('https://www.facebook.com/ads/library/?id=' + id, '_blank');
-    if (act === 'site' && safeUrl(a.link)) window.open(a.link, '_blank', 'noopener');
+    if (act === 'site' && safeUrl(a.link)) { rememberAd(a); window.open(a.link, '_blank', 'noopener'); }
     if (act === 'copy') { navigator.clipboard.writeText(a.copy || ''); btn.textContent = 'Copiado'; }
     if (act === 'fav') toggleSave(id);
   });
