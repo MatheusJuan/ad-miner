@@ -352,7 +352,7 @@
     .st{background:var(--card);border-radius:8px;padding:8px;text-align:center}
     .st b{display:block;font-size:17px}.st small{color:var(--mut);font-size:10px}
     .tabs{display:flex;padding:0 14px;gap:4px}
-    .tab{flex:1;background:var(--card);border:0;color:var(--mut);padding:8px 4px;border-radius:8px 8px 0 0;cursor:pointer;font-size:12px;font-weight:600}
+    .tab{flex:1;background:var(--card);border:0;color:var(--mut);padding:8px 2px;border-radius:8px 8px 0 0;cursor:pointer;font-size:11px;font-weight:600}
     .tab.on{background:var(--accent);color:var(--dark)}
     .filters{padding:10px 14px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;background:var(--card)}
     .filters input,.filters select{width:100%;background:#12121f;border:1px solid #34345a;color:var(--txt);border-radius:6px;padding:6px;font-size:12px}
@@ -393,6 +393,15 @@
     .chip:hover{background:var(--accent);color:var(--dark)}.chip:hover i{color:var(--dark)}.chip i{color:var(--accent);font-style:normal;margin-left:6px}
     .empty{color:var(--mut);text-align:center;padding:30px 10px;font-size:13px}
     .legend{font-size:10.5px;color:var(--mut);padding:0 14px 8px}
+    .panel.cafe .filters,.panel.cafe .legend,.panel.cafe .foot{display:none}
+    .cafe-intro{background:var(--card);border-left:3px solid var(--accent);border-radius:10px;padding:12px;font-size:12.5px;line-height:1.6;margin-bottom:12px}
+    .cafe-intro b{color:var(--accent)}
+    .coin{background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+    .coin .nm{font-weight:700;font-size:13.5px}
+    .coin .net{color:var(--mut);font-size:11px;margin:2px 0 8px}
+    .coin code{display:block;background:#12121f;border:1px solid #2c2c4a;border-radius:6px;padding:8px;font:11.5px/1.5 ui-monospace,Consolas,monospace;word-break:break-all;color:#e4e4f2}
+    .coin button{margin-top:8px;background:var(--accent);color:var(--dark);border:0;border-radius:6px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer}
+    .cafe-note{color:var(--mut);font-size:11px;line-height:1.5;margin-top:12px}
     .lb{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center}
     .lb.open{display:flex}
     .lbbox{width:min(96vw,1180px);height:min(92vh,820px);display:flex;flex-direction:column;background:#12121f;border-radius:14px;overflow:hidden;color:#fff;border:1px solid #34345a}
@@ -436,6 +445,7 @@
         <button class="tab" data-tab="advs">Anunciantes</button>
         <button class="tab" data-tab="words">Palavras</button>
         <button class="tab" data-tab="favs" id="tabfavs">Salvos</button>
+        <button class="tab" data-tab="cafe">☕ Cafézinho</button>
       </div>
       <div class="filters">
         <input class="full" id="q" placeholder="Buscar em copy, anunciante, domínio ou ID">
@@ -651,9 +661,22 @@
       </div></div>`;
   }
 
+  // enderecos para doacao (fixos no codigo, nunca vindos da pagina)
+  const DONATE = [
+    { name: 'Bitcoin', net: 'Rede Bitcoin (BTC)', addr: 'bc1qwnh9fm5fw4z9w9sf9dm6q5mma7djuyy743g5h2' },
+    { name: 'Ethereum', net: 'Rede Ethereum (ETH)', addr: '0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B' },
+    { name: 'Dólar digital', net: 'USDT ou USDC na rede Ethereum (ERC-20)', addr: '0xaC5C2A9ba9A844F51CCb100b8756518ADd3CF93B' },
+    { name: 'Solana', net: 'Rede Solana (SOL)', addr: '9WbXEo6xZCuS29beCY3keeTYb19JcWFm71UQj6HJcjiL' }
+  ];
+
+  const cafeHTML = () => `<div class="cafe-intro">☕ <b>Pague um cafezinho</b><br>O Ad Miner é feito e mantido por uma pessoa só. Se ele te ajuda a achar boas ofertas, qualquer valor em criptomoeda ajuda a manter o projeto vivo. É totalmente opcional: a ferramenta funciona igual para todo mundo.</div>
+    ${DONATE.map(c => `<div class="coin"><div class="nm">${esc(c.name)}</div><div class="net">${esc(c.net)}</div><code>${esc(c.addr)}</code><button data-copy="${esc(c.addr)}">Copiar endereço</button></div>`).join('')}
+    <div class="cafe-note">Confira a rede antes de enviar. Mandar uma moeda pela rede errada pode perder o valor. Obrigado pelo apoio! 💛</div>`;
+
   function renderList() {
     const el = $('list');
     const t = state.tab;
+    if (t === 'cafe') { el.innerHTML = cafeHTML(); return; }
     if (t === 'ads' || t === 'favs') {
       const list = currentList();
       const emptyMsg = t === 'favs' ? 'Nenhum anúncio salvo ainda. Use o botão "Salvar" em qualquer anúncio.' : 'Nenhum anúncio ainda. Role a página ou clique em "Carregar tudo".';
@@ -700,6 +723,7 @@
 
   root.querySelectorAll('.tab').forEach(b => b.onclick = () => {
     state.tab = b.dataset.tab;
+    $('panel').classList.toggle('cafe', state.tab === 'cafe');
     root.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x === b));
     renderList();
   });
@@ -714,6 +738,13 @@
   $('max').addEventListener('input', e => { state.max = +e.target.value || 400; });
 
   root.addEventListener('click', e => {
+    const cp = e.target.closest('[data-copy]');
+    if (cp) {
+      navigator.clipboard.writeText(cp.dataset.copy);
+      cp.textContent = 'Copiado';
+      setTimeout(() => { cp.textContent = 'Copiar endereço'; }, 1500);
+      return;
+    }
     const chip = e.target.closest('[data-q]');
     if (chip) {
       state.filters.q = chip.dataset.q; $('q').value = chip.dataset.q; state.tab = 'ads';
