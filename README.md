@@ -25,7 +25,8 @@ Anúncio que fica muito tempo no ar, com várias variações do mesmo criativo, 
   - **Palavras:** termos e combinações de duas palavras mais repetidos nas copys, para achar ângulos e ganchos. Clicar em um termo filtra a lista.
   - **Salvos:** anúncios guardados no navegador, que continuam disponíveis ao recarregar a página.
   - **☕ Cafézinho:** chave Pix e endereços de criptomoeda para quem quiser apoiar o projeto (opcional).
-- **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia), status (ativo ou inativo) e destino do clique (site, WhatsApp ou mensagem). O que não passa no filtro pode ser esmaecido ou ocultado na própria página.
+- **Agrupar criativos repetidos:** o mesmo criativo do mesmo anunciante aparece em uma linha só, com o selo "+N iguais". Dá para desligar no painel, e as exportações sempre levam todos os anúncios.
+- **Filtros:** busca por texto (copy, anunciante, domínio ou ID), mínimo de dias, mínimo de variações, tipo de mídia (vídeo, imagem ou sem mídia), status (ativo ou inativo) e destino do clique (site, WhatsApp ou mensagem). O que não passa no filtro pode ser esmaecido ou ocultado na própria página. Os filtros ficam salvos entre sessões (menos o texto da busca) e o painel mostra quantos anúncios estão sendo exibidos.
 - **Destino do clique:** cada anúncio é classificado como site, WhatsApp ou mensagem (Messenger), e a opção "Site ou WhatsApp" mostra só os que levam o lead para um canal de contato.
 - **Visualizador de mídia:** a mídia ocupa a área principal, com tela cheia, abertura em nova aba e link para o anúncio original. Na lateral ficam o anunciante, o nível (forte, médio ou fraco), os destaques (dias no ar, variações, score e volume do anunciante), os dados do anúncio, a copy e os botões de copiar texto, salvar e abrir o site.
 - **Carregar tudo:** rola a página automaticamente até o limite de anúncios definido (padrão 400).
@@ -57,6 +58,7 @@ Clique no selo **Dev** no topo do painel para ver a versão instalada, se há um
 
 ### Histórico recente
 
+- **1.5.0:** criativos repetidos agrupados na lista ("+N iguais"), variações contadas por anunciante, contador "mostrando X de Y", filtros lembrados entre sessões, miniaturas dos salvos mais confiáveis, CSV protegido contra fórmulas e "Limpar lista" que desfaz as marcações na página.
 - **1.4.2:** link de download direto do ZIP no aviso de nova versão e no README.
 - **1.4.1:** chave Pix na aba Cafézinho.
 - **1.4.0:** aba Cafézinho para apoiar o projeto.
@@ -65,7 +67,7 @@ Clique no selo **Dev** no topo do painel para ver a versão instalada, se há um
 
 ## Privacidade
 
-Tudo roda no seu navegador. Os dados dos anúncios e os salvos ficam em `chrome.storage.local` e não são enviados a nenhum servidor. A única requisição externa feita pela extensão é a leitura do `manifest.json` deste repositório, para a checagem de versão.
+Tudo roda no seu navegador. Os dados dos anúncios e os salvos ficam em `chrome.storage.local` e não são enviados a nenhum servidor. As requisições externas feitas pela extensão são a leitura do `manifest.json` deste repositório, para a checagem de versão, e o download da miniatura de um anúncio no momento em que você o salva.
 
 ## Estrutura
 

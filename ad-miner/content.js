@@ -22,7 +22,7 @@
     open: false,
     scrolling: false,
     max: 400,
-    filters: { q: '', minDays: 0, minVar: 0, type: 'all', status: 'all', dest: 'all', sort: 'score', dim: true, hide: false }
+    filters: { q: '', minDays: 0, minVar: 0, type: 'all', status: 'all', dest: 'all', sort: 'score', dim: true, hide: false, group: true }
   };
   const isSaved = id => state.saved.has(id);
   const getAd = id => state.ads.get(id) || state.saved.get(id);
@@ -33,6 +33,7 @@
   const norm = s => (s || '').toLowerCase().replace(/\s+/g, ' ').replace(/[^\p{L}\p{N} ]/gu, '').trim();
   const fmtDate = d => (d ? new Date(d).toLocaleDateString('pt-BR') : '');
   const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const safeUrl = u => (/^https?:\/\//i.test(u || '') ? u : '');
 
   function parseDate(s) {
     if (!s) return null;
@@ -72,6 +73,11 @@
   }, 400);
 
   async function thumbToData(url) {
+    // o background tem host_permissions do CDN; o fetch direto da pagina fica de reserva
+    try {
+      const d = await new Promise(res => chrome.runtime.sendMessage({ type: 'am-thumb', url }, r => res(chrome.runtime.lastError ? '' : (r && r.data) || '')));
+      if (d) return d;
+    } catch (e) { /* segue para o fetch direto */ }
     try {
       const r = await fetch(url);
       const b = await r.blob();
@@ -210,13 +216,15 @@
     state.ads.forEach(a => {
       advCount.set(a.advertiser, (advCount.get(a.advertiser) || 0) + 1);
       const k = norm(a.copy).slice(0, 220);
-      if (k.length > 15) textGroups.set(k, (textGroups.get(k) || 0) + 1);
-      if (a.mediaKey) mediaGroups.set(a.mediaKey, (mediaGroups.get(a.mediaKey) || 0) + 1);
+      const adv = a.advertiser || '';
+      if (k.length > 15) textGroups.set(adv + '|' + k, (textGroups.get(adv + '|' + k) || 0) + 1);
+      if (a.mediaKey) mediaGroups.set(adv + '|' + a.mediaKey, (mediaGroups.get(adv + '|' + a.mediaKey) || 0) + 1);
     });
     state.ads.forEach(a => {
       const k = norm(a.copy).slice(0, 220);
-      const tg = k.length > 15 ? textGroups.get(k) : 1;
-      const mg = a.mediaKey ? mediaGroups.get(a.mediaKey) : 1;
+      const adv = a.advertiser || '';
+      const tg = k.length > 15 ? textGroups.get(adv + '|' + k) : 1;
+      const mg = a.mediaKey ? mediaGroups.get(adv + '|' + a.mediaKey) : 1;
       a.vars = Math.max(a.nativeVars || 1, tg || 1, mg || 1);
       a.advAds = advCount.get(a.advertiser) || 1;
       let s = Math.min(a.days, 60) / 60 * 55 + Math.min(a.vars, 10) / 10 * 30 + Math.min(a.advAds, 15) / 15 * 15;
@@ -260,9 +268,29 @@
   }
 
   const filtered = () => sorted([...state.ads.values()].filter(passes));
-  const currentList = () => (state.tab === 'favs'
-    ? sorted([...state.saved.values()].map(s => state.ads.get(s.id) || s))
-    : filtered());
+
+  // mesmo anunciante + mesma midia (ou mesmo texto) = um criativo; mantem o 1o da ordenacao
+  const groupKey = a => {
+    const k = norm(a.copy).slice(0, 220);
+    const c = a.mediaKey || (k.length > 15 ? k : '');
+    return c ? (a.advertiser || '') + '|' + c : a.id;
+  };
+  function grouped(list) {
+    const seen = new Map();
+    list.forEach(a => {
+      const g = groupKey(a);
+      const e = seen.get(g);
+      if (e) e.n++; else seen.set(g, { a, n: 1 });
+    });
+    return [...seen.values()].map(({ a, n }) => { a.grp = n; return a; });
+  }
+
+  // group=false devolve todos os anuncios (usado nas exportacoes)
+  const currentList = (group = true) => {
+    if (state.tab === 'favs') return sorted([...state.saved.values()].map(s => state.ads.get(s.id) || s));
+    const l = filtered();
+    return group && state.filters.group && state.tab === 'ads' ? grouped(l) : l;
+  };
 
   /* ========================= OVERLAY NOS CARDS ========================= */
   const TIER_SHADOW = {
@@ -395,6 +423,8 @@
     .empty{color:var(--mut);text-align:center;padding:30px 10px;font-size:13px}
     .legend{font-size:10.5px;color:var(--mut);padding:0 14px 8px}
     .panel.cafe .filters,.panel.cafe .legend,.panel.cafe .foot{display:none}
+    .count{color:var(--mut);font-size:11px;margin:0 0 8px}
+    .grp{flex:none;font-size:10.5px;font-weight:700;color:var(--dark);background:var(--accent);border-radius:999px;padding:1px 8px}
     .cafe-intro{background:var(--card);border-left:3px solid var(--accent);border-radius:10px;padding:12px;font-size:12.5px;line-height:1.6;margin-bottom:12px}
     .cafe-intro b{color:var(--accent)}
     .coin{background:var(--card);border-radius:10px;padding:10px 12px;margin-bottom:8px}
@@ -464,6 +494,7 @@
         <label><input type="checkbox" id="dim" checked> Esmaecer</label>
         <select id="dest"><option value="all">Destino: todos</option><option value="any">Site ou WhatsApp</option><option value="site">Só site</option><option value="whatsapp">WhatsApp</option><option value="mensagem">Mensagem (Messenger)</option></select>
         <label class="span2"><input type="checkbox" id="hide"> Ocultar na página o que não passa no filtro</label>
+        <label class="full"><input type="checkbox" id="group" checked> Agrupar criativos repetidos na lista</label>
       </div>
       <div class="legend">Score: dias no ar (55%), variações (30%), volume do anunciante (15%). Forte 70+, Médio 40+. A lista reseta ao recarregar ou mudar a busca, os salvos ficam.</div>
       <div class="list" id="list"></div>
@@ -585,7 +616,7 @@
     if (!a) return;
     const act = b.dataset.lb;
     if (act === 'copy') { navigator.clipboard.writeText(a.copy || ''); b.textContent = 'Copiado'; }
-    if (act === 'site') window.open(a.link, '_blank', 'noopener');
+    if (act === 'site' && safeUrl(a.link)) window.open(a.link, '_blank', 'noopener');
     if (act === 'fav') { const id = lb.id, idx = lb.idx; await toggleSave(id); if (lb.id === id) { lb.idx = idx; renderLightbox(); } }
   });
 
@@ -608,7 +639,7 @@
   $('lbprev').onclick = () => lbStep(-1);
   $('lbnext').onclick = () => lbStep(1);
   $('lbfs').onclick = () => { const el = $('lbm').firstElementChild; if (el && el.requestFullscreen) el.requestFullscreen(); };
-  $('lbopen').onclick = () => { const m = lb.list[lb.idx]; if (m) window.open(m.src, '_blank'); };
+  $('lbopen').onclick = () => { const m = lb.list[lb.idx]; if (m && safeUrl(m.src)) window.open(m.src, '_blank', 'noopener'); };
   $('lbad').onclick = () => { if (lb.id) window.open('https://www.facebook.com/ads/library/?id=' + lb.id, '_blank'); };
   window.addEventListener('keydown', e => {
     if (!$('lb').classList.contains('open')) return;
@@ -647,7 +678,7 @@
         ${a.type === 'video' ? '<div class="play">▶</div>' : ''}
       </div>
       <div class="info">
-        <div class="top"><b title="${esc(a.advertiser)}">${esc(a.advertiser || 'Sem nome')}</b></div>
+        <div class="top"><b title="${esc(a.advertiser)}">${esc(a.advertiser || 'Sem nome')}</b>${a.grp > 1 && state.filters.group && state.tab === 'ads' ? '<span class="grp" title="Anúncios com o mesmo criativo">+' + (a.grp - 1) + ' iguais</span>' : ''}</div>
         ${metsHTML(a)}
         <div class="meta">${a.type} | ${a.status || '?'}${a.domain ? ' | ' + esc(a.domain) : ''}${{ whatsapp: ' | WhatsApp', mensagem: ' | Mensagem' }[a.dest] || ''} | Início ${fmtDate(a.start) || '?'} | ID ${a.id}</div>
         <div class="copy">${esc((a.copy || '').slice(0, 160))}</div>
@@ -681,8 +712,16 @@
     if (t === 'cafe') { el.innerHTML = cafeHTML(); return; }
     if (t === 'ads' || t === 'favs') {
       const list = currentList();
+      let head = '';
+      if (t === 'ads' && list.length) {
+        const total = filtered().length, grp = state.filters.group;
+        head = '<div class="count">Mostrando ' + list.length + (grp ? ' criativos' : ' anúncios')
+          + (grp && total !== list.length ? ' (' + total + ' anúncios)' : '')
+          + (state.ads.size !== total ? ' · ' + (state.ads.size - total) + ' fora do filtro' : '')
+          + (list.length > 300 ? ' · exibindo os 300 primeiros' : '') + '</div>';
+      }
       const emptyMsg = t === 'favs' ? 'Nenhum anúncio salvo ainda. Use o botão "Salvar" em qualquer anúncio.' : 'Nenhum anúncio ainda. Role a página ou clique em "Carregar tudo".';
-      el.innerHTML = list.length ? list.slice(0, 300).map(rowHTML).join('') : `<div class="empty">${emptyMsg}</div>`;
+      el.innerHTML = list.length ? head + list.slice(0, 300).map(rowHTML).join('') : `<div class="empty">${emptyMsg}</div>`;
     } else if (t === 'advs') {
       const m = new Map();
       filtered().forEach(a => {
@@ -730,13 +769,18 @@
     renderList();
   });
 
+  const FKEYS = ['minDays', 'minVar', 'sort', 'type', 'status', 'dest', 'dim', 'hide', 'group']; // o texto de busca nao persiste
+  const persistFilters = debounce(() => {
+    try { chrome.storage.local.set({ amFilters: Object.fromEntries(FKEYS.map(k => [k, state.filters[k]])) }); } catch (e) { /* ignora */ }
+  }, 400);
   const bind = (id, key, num) => $(id).addEventListener('input', e => {
     const v = e.target.type === 'checkbox' ? e.target.checked : e.target.value;
     state.filters[key] = num ? (+v || 0) : v;
+    persistFilters();
     refresh();
   });
   bind('q', 'q'); bind('minDays', 'minDays', true); bind('minVar', 'minVar', true);
-  bind('sort', 'sort'); bind('type', 'type'); bind('status', 'status'); bind('dest', 'dest'); bind('dim', 'dim'); bind('hide', 'hide');
+  bind('sort', 'sort'); bind('type', 'type'); bind('status', 'status'); bind('dest', 'dest'); bind('dim', 'dim'); bind('hide', 'hide'); bind('group', 'group');
   $('max').addEventListener('input', e => { state.max = +e.target.value || 400; });
 
   root.addEventListener('click', e => {
@@ -769,7 +813,7 @@
       setTimeout(() => { a.el.style.boxShadow = old; }, 1500);
     }
     if (act === 'open') window.open('https://www.facebook.com/ads/library/?id=' + id, '_blank');
-    if (act === 'site') window.open(a.link, '_blank');
+    if (act === 'site' && safeUrl(a.link)) window.open(a.link, '_blank', 'noopener');
     if (act === 'copy') { navigator.clipboard.writeText(a.copy || ''); btn.textContent = 'Copiado'; }
     if (act === 'fav') toggleSave(id);
   });
@@ -777,24 +821,38 @@
   /* ========================= EXPORTACAO ========================= */
   const COLS = ['id', 'anunciante', 'status', 'inicio', 'fim', 'dias_no_ar', 'variacoes', 'score', 'nivel', 'tipo_midia', 'destino', 'dominio', 'cta', 'link_destino', 'copy', 'url_biblioteca'];
   const rowOf = a => [a.id, a.advertiser, a.status, fmtDate(a.start), fmtDate(a.end), a.days, a.vars, a.score, a.tier, a.type, a.dest, a.domain, a.cta, a.link, a.copy, 'https://www.facebook.com/ads/library/?id=' + a.id];
-  const csvCell = v => '"' + String(v ?? '').replace(/"/g, '""').replace(/\n/g, ' ') + '"';
+  const csvCell = v => {
+    let t = String(v ?? '').replace(/\n/g, ' ');
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // evita formula no Excel
+    return '"' + t.replace(/"/g, '""') + '"';
+  };
   const stamp = () => new Date().toISOString().slice(0, 10);
   const tag = () => (state.tab === 'favs' ? 'salvos' : 'lista');
 
   $('csv').onclick = () => {
-    const rows = currentList().map(rowOf);
+    const rows = currentList(false).map(rowOf);
     download(`ad-miner-${tag()}-${stamp()}.csv`, 'text/csv;charset=utf-8', '\ufeff' + [COLS, ...rows].map(r => r.map(csvCell).join(';')).join('\n'));
   };
   $('json').onclick = () => {
-    const data = currentList().map(a => Object.fromEntries(COLS.map((c, i) => [c, rowOf(a)[i]])));
+    const data = currentList(false).map(a => Object.fromEntries(COLS.map((c, i) => [c, rowOf(a)[i]])));
     download(`ad-miner-${tag()}-${stamp()}.json`, 'application/json', JSON.stringify(data, null, 2));
   };
   $('ids').onclick = () => {
-    navigator.clipboard.writeText(currentList().map(a => a.id).join('\n'));
+    navigator.clipboard.writeText(currentList(false).map(a => a.id).join('\n'));
     $('ids').textContent = 'Copiado';
     setTimeout(() => { $('ids').textContent = 'Copiar IDs'; }, 1200);
   };
-  $('clear').onclick = () => { state.ads.clear(); refresh(); };
+  $('clear').onclick = () => {
+    state.ads.forEach(a => {
+      const el = a.el;
+      if (!el) return;
+      el.style.display = ''; el.style.opacity = ''; el.style.boxShadow = '';
+      const h = el.querySelector(':scope > .am-badge');
+      if (h) h.remove();
+    });
+    state.ads.clear();
+    refresh();
+  };
 
   /* ========================= AUTO SCROLL ========================= */
   async function autoLoad() {
@@ -862,7 +920,14 @@
 
   // carrega salvos
   try {
-    chrome.storage.local.get('amSaved', r => {
+    chrome.storage.local.get(['amSaved', 'amFilters'], r => {
+      const f = r.amFilters || {};
+      FKEYS.forEach(k => {
+        if (!(k in f)) return;
+        state.filters[k] = f[k];
+        const i = $(k);
+        if (i.type === 'checkbox') i.checked = !!f[k]; else i.value = f[k];
+      });
       Object.entries(r.amSaved || {}).forEach(([id, o]) => state.saved.set(id, revive(o)));
       refresh();
     });

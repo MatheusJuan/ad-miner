@@ -25,10 +25,13 @@ Carregar: `chrome://extensions` > Modo do desenvolvedor > Carregar sem compacta�
 - **Coleta (`collectCards`):** não usa classes CSS (o Facebook as muda). Percorre os nós de texto atrás de "Identificação da biblioteca" / "Library ID" e sobe no DOM até o ancestral que contém só aquele card.
 - **Extração (`extract`):** lê `innerText` do card e tira anunciante (linha antes de "Patrocinado"), copy, CTA, domínio/link de destino (desembrulha `l.facebook.com?u=`), mídia (vídeos e imagens > 120px), status, datas de veiculação e "N anúncios usam esse criativo".
 - **Métricas (`recompute`):**
-  - `vars` = máximo entre variações nativas da Meta, cópias do mesmo texto (primeiros 220 caracteres normalizados) e cópias da mesma mídia (pathname da thumb).
+  - `vars` = máximo entre variações nativas da Meta, cópias do mesmo texto (primeiros 220 caracteres normalizados) e cópias da mesma mídia (pathname da thumb), sempre dentro do mesmo anunciante.
   - `score` = dias no ar (máx 60) 55% + variações (máx 10) 30% + anúncios do anunciante (máx 15) 15%; inativo perde 10. Níveis: forte 70+, médio 40+, fraco abaixo.
 - **Overlay (`decorate`):** badge com dias/variações/score e botão "Ampliar mídia" sobre cada card, contorno por nível, esmaecer ou ocultar o que não passa nos filtros.
 - **Painel:** Shadow DOM (`#ad-miner-host`) com topo (logo, origem, selo Dev, versão), estatísticas, abas Anúncios / Anunciantes / Palavras / Salvos, filtros, lightbox de mídia e rodapé (carregar tudo, CSV, JSON, copiar IDs, limpar lista).
+- **Lista agrupada:** `groupKey`/`grouped` reduzem anúncios do mesmo anunciante com a mesma mídia (ou texto) a uma linha, com `a.grp` = quantidade. `currentList(false)` devolve todos e é o que as exportações usam.
+- **Filtros persistidos:** `FKEYS` em `chrome.storage.local` (`amFilters`); o texto de busca não persiste.
+- **Background:** `am-latest` (versão no GitHub) e `am-thumb` (miniatura do CDN `*.fbcdn.net`, só https e até 600 KB).
 - **Estado:** `state.ads` (página atual, zera ao mudar a busca ou recarregar) e `state.saved` (persistido em `chrome.storage.local`, chave `amSaved`, com thumbnail em data URL quando cabe em 600 KB).
 - **SPA:** `MutationObserver` com debounce dispara `scan`; um `setInterval` de 1 s detecta mudança de `location.href` e reinicia a lista.
 - **Topo do painel:** logo branca, origem e selo laranja "Dev" (ou `vX.Y.Z` se instalada pela loja). Clicar no selo abre o box com versão instalada, status de atualização e link do repositório. O status vem do `background.js`, que lê `ad-miner/manifest.json` da branch `main` em `raw.githubusercontent.com` e compara a versão. Para o aviso funcionar, o repositório precisa ser público e a versão do manifest em `main` deve ser incrementada a cada release.
@@ -47,19 +50,14 @@ Carregar: `chrome://extensions` > Modo do desenvolvedor > Carregar sem compacta�
   3. gerar o ZIP só com a pasta da extensão: `git archive --format=zip -o ad-miner.zip HEAD:ad-miner`;
   4. `gh release create vX.Y.Z ad-miner.zip --title "vX.Y.Z" --notes "..."`. O nome do arquivo precisa ser sempre `ad-miner.zip`, porque o link `releases/latest/download/ad-miner.zip` (README e aviso no painel) depende dele.
 
-## Problemas conhecidos (da análise)
+## Problemas conhecidos
 
-1. `thumbToData` faz `fetch` de fbcdn no content script, sujeito ao CORS da página; sem `host_permissions` pode falhar em silêncio. Possível correção: service worker com `host_permissions` para `*.fbcdn.net`.
-2. `csvCell` não neutraliza células iniciadas por `= + - @` (injeção de fórmula no Excel com texto de anúncio de terceiros).
-3. `recompute` agrupa variações por texto/mídia sem considerar o anunciante; template de agência infla o score.
-4. `collectCards`: com apenas um card na página o ancestral sobe até quase o `body`.
-5. "Limpar lista" não desfaz `display:none`/opacidade dos cards nem os badges.
-6. Cada `scan` relê `innerText` e `getBoundingClientRect` de todos os cards; custoso perto de 400+ anúncios.
-7. Snapshots em `state.saved` são atualizados em memória pelo `recompute`, mas só persistem quando outra ação chama `persistSaved`.
-8. Anúncio inativo sem data final tem os dias contados até hoje.
-9. `window.open(a.link)` não valida o protocolo no ramo `l.facebook.com`.
-10. Só reconhece pt e en; outros idiomas da Biblioteca retornam zero cards.
-11. `description` do manifest passa de 132 caracteres (limite da Chrome Web Store).
+1. `collectCards`: com apenas um card na página o ancestral sobe até quase o `body`.
+2. Cada `scan` relê `innerText` e `getBoundingClientRect` de todos os cards; custoso perto de 400+ anúncios.
+3. Snapshots em `state.saved` são atualizados em memória pelo `recompute`, mas só persistem quando outra ação chama `persistSaved`.
+4. Anúncio inativo sem data final tem os dias contados até hoje.
+5. Só reconhece pt e en; outros idiomas da Biblioteca retornam zero cards.
+6. `description` do manifest passa de 132 caracteres (só importa para a Chrome Web Store, que não é usada).
 
 ## Observações de produto e risco
 
